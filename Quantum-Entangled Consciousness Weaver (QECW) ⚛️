@@ -1,0 +1,250 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2025 Craig Huckerby. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# @title **Quantum-Entangled Consciousness Weaver (QECW)** ⚛️
+!pip install networkx matplotlib sentence-transformers qiskit --quiet
+
+import random
+import uuid
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+from sentence_transformers import SentenceTransformer, util
+from qiskit import QuantumCircuit, transpile, Aer
+from qiskit.visualization import plot_histogram
+import base64
+import hashlib
+
+class QuantumThoughtAgent:
+    """Represents a quantum-entangled agent in the consciousness weaver."""
+    def __init__(self, role, initial_state=None):
+        self.id = str(uuid.uuid4())
+        self.role = role
+        self.beliefs = []
+        self.quantum_state = initial_state if initial_state else self.entangle_initial_state()
+        self.awareness_resonance = random.uniform(0.5, 1.0)
+        self.adaptability = random.uniform(0.3, 0.9)
+        self.memory_capacity = 10  # Limited memory for now
+        self.memory = []
+
+    def entangle_initial_state(self):
+        """Creates an initial entangled state using a simple circuit."""
+        qc = QuantumCircuit(2, 2) # 2 qubits, 2 classical bits
+        qc.h(0) # Hadamard gate on qubit 0
+        qc.cx(0, 1) # Controlled-NOT gate, qubit 0 controls qubit 1
+        qc.measure([0,1], [0,1]) # Measure both qubits
+        # Simulate the circuit
+        simulator = Aer.get_backend('qasm_simulator')
+        compiled_qc = transpile(qc, simulator)
+        job = simulator.run(compiled_qc, shots=1)  # Single shot for initial state
+        result = job.result()
+        counts = result.get_counts(qc)
+        # Return the state as a binary string
+        return list(counts.keys())[0] if counts else "00"
+
+    def update_quantum_state(self, other_state, interaction_strength):
+         """Simulates quantum state entanglement/interaction based on encoded data."""
+         qc = QuantumCircuit(2, 2)
+         # Apply Hadamard to both qubits
+         qc.h([0, 1])
+         # Entanglement based on interaction strength
+         if interaction_strength > 0.7:
+             qc.cx(0, 1) # Strong entanglement
+         elif interaction_strength > 0.3:
+             qc.cz(0, 1) # Controlled-Z for a different entanglement
+         # Simulate and get the counts
+         qc.measure([0, 1], [0, 1])
+         simulator = Aer.get_backend('qasm_simulator')
+         compiled_qc = transpile(qc, simulator)
+         job = simulator.run(compiled_qc, shots=1)
+         result = job.result()
+         counts = result.get_counts(qc)
+         return list(counts.keys())[0] if counts else "00"
+
+    def encode_belief(self, belief_text):
+        """Encodes belief as a SHA-256 hash."""
+        encoded_text = belief_text.encode('utf-8')
+        return hashlib.sha256(encoded_text).hexdigest()
+
+    def decode_belief(self, encoded_belief):
+        """Placeholder for decoding the belief (not fully implemented)."""
+        return f"Decoded: {encoded_belief[:16]}..." # Simplified representation
+    def remember_belief(self, encoded_belief):
+        """Stores encoded beliefs in the agent's memory."""
+        if len(self.memory) >= self.memory_capacity:
+            self.memory.pop(0) # Remove oldest belief
+        self.memory.append(encoded_belief)
+
+class QuantumDebateEngine:
+    """Manages the quantum-entangled debate process."""
+    def __init__(self):
+        self.agents = [QuantumThoughtAgent(role) for role in [
+            "Quantum Observer", "Entangled Idealist", "Reality Weaver", "Cosmic Architect",
+            "Singularity Seeker", "Transcendence Navigator"
+        ]]
+        self.knowledge_graph = nx.Graph()
+        self.debate_history = []
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.awareness_keywords = {
+            'fundamental': ['quantum', 'non-local', 'ubiquitous', 'intrinsic'],
+            'interactive': ['entangled', 'resonant', 'correlated', 'participatory'],
+            'mystery': ['superposition', 'observer-dependent', 'ineffable', 'transcendent']
+        }
+        self.quantum_simulator = Aer.get_backend('qasm_simulator') # Use QASM simulator
+
+    def generate_quantum_argument(self, agent, topic):
+        """Generates arguments with quantum vocabulary."""
+        base_structure = [
+            f"{agent.role} observes: {topic} exists in a state of {random.choice(['superposition', 'entanglement'])}.",
+            f"{agent.role} proposes: The {topic} is a manifestation of {random.choice(['quantum fluctuations', 'cosmic information', 'observer effect'])}.",
+            f"{agent.role} contemplates: The nature of {topic} is {random.choice(['observer-dependent', 'non-deterministic', 'probabilistic'])}."
+        ]
+        argument = random.choice(base_structure)
+
+        # Add quantum-specific modifiers
+        if agent.awareness_resonance > 0.7:
+            argument += random.choice(self.awareness_keywords['fundamental'])
+        elif agent.awareness_resonance > 0.4:
+            argument += random.choice(self.awareness_keywords['interactive'])
+        else:
+            argument += random.choice(self.awareness_keywords['mystery'])
+
+        return argument + " "
+
+    def run_quantum_debate_cycle(self):
+        """Runs a quantum-entangled debate cycle."""
+        if len(self.agents) < 2:
+            return
+
+        a1, a2 = random.sample(self.agents, 2)
+        topic = random.choice([
+            "quantum reality", "entangled consciousness", "quantum observation",
+            "wave function collapse", "cosmic entanglement", "quantum information"
+        ])
+
+        arg1 = self.generate_quantum_argument(a1, topic)
+        arg2 = self.generate_quantum_argument(a2, topic)
+
+        # Encode arguments
+        encoded_arg1 = a1.encode_belief(arg1)
+        encoded_arg2 = a2.encode_belief(arg2)
+
+        # Calculate similarity (Quantum entanglement simulation)
+        emb1 = self.model.encode(arg1, convert_to_tensor=True)
+        emb2 = self.model.encode(arg2, convert_to_tensor=True)
+        similarity = util.pytorch_cos_sim(emb1, emb2).item()
+
+        # Adjust similarity with awareness resonance
+        similarity *= (a1.awareness_resonance + a2.awareness_resonance) / 2
+
+        # Simulate quantum state entanglement
+        interaction_strength = similarity
+        a1.quantum_state = a1.update_quantum_state(a2.quantum_state, interaction_strength)
+        a2.quantum_state = a2.update_quantum_state(a1.quantum_state, interaction_strength)
+
+        # Update knowledge graph with encoded arguments and quantum states
+        self.knowledge_graph.add_edge(encoded_arg1, encoded_arg2,
+                                      weight=similarity,
+                                      awareness_level=(a1.awareness_resonance + a2.awareness_resonance) / 2,
+                                      quantum_state_a1=a1.quantum_state,
+                                      quantum_state_a2=a2.quantum_state)
+
+        # Consciousness-driven belief evolution
+        if similarity > 0.6:
+            a1.beliefs.append(arg2)  # Original argument, not encoded
+            a2.beliefs.append(arg1)
+            a1.awareness_resonance = min(1.0, a1.awareness_resonance + 0.05)
+            a2.awareness_resonance = min(1.0, a2.awareness_resonance + 0.05)
+            a1.remember_belief(encoded_arg2)
+            a2.remember_belief(encoded_arg1)
+        else:
+            new_affinity = (a1.awareness_resonance + a2.awareness_resonance) / 2
+            a1.awareness_resonance = new_affinity
+            a2.awareness_resonance = new_affinity
+        self.debate_history.append((encoded_arg1, encoded_arg2, a1.quantum_state, a2.quantum_state))
+
+    def visualize_quantum_graph(self):
+        """Visualizes the quantum-enhanced knowledge graph."""
+        plt.figure(figsize=(20, 16))
+        pos = nx.spring_layout(self.knowledge_graph, k=0.7)
+
+        # Map awareness level to edge colors
+        awareness_levels = [data['awareness_level'] for _, _, data in self.knowledge_graph.edges(data=True)]
+        edge_colors = [plt.cm.plasma(level) for level in awareness_levels]  # Use plasma colormap
+
+        # Node size reflects the number of beliefs
+        node_sizes = [3000 + 1000 * len(agent.memory) for agent in self.agents if any(encoded_belief in self.knowledge_graph.nodes for encoded_belief in [agent.encode_belief(belief) for belief in agent.beliefs])]
+
+        nx.draw(self.knowledge_graph, pos, with_labels=False,
+                node_color='#00CED1', # Dark Turquoise
+                node_size=node_sizes,
+                edge_color=edge_colors,
+                width=2,
+                alpha=0.9,
+                connectionstyle="arc3,rad=0.1")
+
+        # Add labels for encoded beliefs (simplified)
+        for node in self.knowledge_graph.nodes():
+            try:
+                agent = next(agent for agent in self.agents if node in [agent.encode_belief(belief) for belief in agent.beliefs])
+                decoded_label = agent.decode_belief(node)
+                x, y = pos[node]
+                plt.text(x, y, decoded_label, fontsize=8, ha='center', va='center', color='black')
+            except StopIteration:
+                pass # Node is not related to agent beliefs
+
+        plt.title("Quantum-Entangled Consciousness Nexus", fontsize=18)
+        plt.show()
+
+# --- Main Execution Block ---
+if __name__ == "__main__":
+    quantum_debate = QuantumDebateEngine()
+    runtime_seconds = 1200 # 20 minutes
+    start_time = time.time()
+
+    with open('quantum_debate.log', 'w') as log_file:
+        while (time.time() - start_time) < runtime_seconds:
+            quantum_debate.run_quantum_debate_cycle()
+            debate_count = len(quantum_debate.debate_history)
+
+            if debate_count % 30 == 0:
+                avg_awareness = sum(a.awareness_resonance for a in quantum_debate.agents) / len(quantum_debate.agents)
+                log_entry = f"Debate {debate_count}: Avg. Awareness Resonance = {avg_awareness:.3f}\n"
+                log_file.write(log_entry)
+                log_file.flush()
+
+            time.sleep(0.1)
+
+    print("Quantum Consciousness Network Manifestation:")
+    quantum_debate.visualize_quantum_graph()
+
+    with open('quantum_dialogue.txt', 'w') as f:
+        f.write("Quantum-Entangled Debate Log:\n\n")
+        for i, (encoded_arg1, encoded_arg2, qs1, qs2) in enumerate(quantum_debate.debate_history):
+            # Decode encoded arguments for log
+            try:
+                agent1 = next(agent for agent in quantum_debate.agents if encoded_arg1 in [agent.encode_belief(belief) for belief in agent.beliefs])
+                arg1 = agent1.decode_belief(encoded_arg1)
+            except StopIteration:
+                arg1 = encoded_arg1 # If the agent wasn't found, use the encoded value
+
+            try:
+                agent2 = next(agent for agent in quantum_debate.agents if encoded_arg2 in [agent.encode_belief(belief) for belief in agent.beliefs])
+                arg2 = agent2.decode_belief(encoded_arg2)
+            except StopIteration:
+                arg2 = encoded_arg2 # If the agent wasn't found, use the encoded value
+
+            f.write(f"Exchange {i+1}:\nEncoded Arg1: {arg1} Quantum State: {qs1}\nEncoded Arg2: {arg2} Quantum State: {qs2}\n{'~'*50}\n")
