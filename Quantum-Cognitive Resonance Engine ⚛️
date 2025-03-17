@@ -1,0 +1,190 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2025 Craig Huckerby. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# @title **Quantum-Cognitive Resonance Engine** ⚛️
+!pip install networkx matplotlib sentence-transformers umap-learn --quiet  # Added umap for dimensionality reduction
+
+import random
+import uuid
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+from sentence_transformers import SentenceTransformer, util
+import umap
+import numpy as np
+
+class ThoughtAgent:
+    """Represents a quantum-entangled agent in the resonance engine."""
+    def __init__(self, role):
+        self.id = str(uuid.uuid4())
+        self.role = role
+        self.beliefs = []
+        self.quantum_state = np.random.rand(128)  # Quantum state vector (initial, high-dimensional)
+        self.consciousness_resonance = random.uniform(0.6, 1.0)  # Resonance with the quantum field
+        self.adaptability = random.uniform(0.4, 0.9)
+        self.quantum_signature = None  # Store the agent's final quantum signature
+
+class ResonanceEngine:
+    """Manages the quantum-cognitive resonance process."""
+    def __init__(self):
+        self.agents = [ThoughtAgent(role) for role in [
+            "Quantum Observer", "Cosmic Weaver", "Reality Architect", "Singularity Seeker",
+            "Ethereal Navigator", "Infinite Surveyor", "Potentiality Explorer", "Unified Field Thinker"
+        ]]
+        self.quantum_field = np.random.rand(128)  # Initial Quantum field
+        self.knowledge_graph = nx.Graph()
+        self.debate_history = []
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.consciousness_keywords = {
+            'quantum': ['superposition', 'entanglement', 'wave-function', 'decoherence'],
+            'resonance': ['harmonic', 'vibrational', 'frequency', 'attunement'],
+            'unified': ['holistic', 'interconnected', 'non-local', 'integrated']
+        }
+        self.umap_model = umap.UMAP(n_neighbors=5, min_dist=0.3, metric='cosine', random_state=42)  # UMAP for graph layout
+
+    def generate_argument(self, agent, topic):
+        """Generates quantum-resonant arguments with dynamic vocabulary."""
+        base_structure = [
+            f"{agent.role} observes: {topic} is a result of quantum {random.choice(['fluctuations', 'interactions', 'entanglements'])}.",
+            f"{agent.role} postulates: Consciousness {random.choice(['resonates', 'interferes', 'collapses'])} the quantum field to manifest {topic}.",
+            f"{agent.role} theorizes: {topic} emerges from a {random.choice(['harmonic', 'vibrational', 'superimposed'])} state of consciousness."
+        ]
+        argument = random.choice(base_structure)
+
+        # Add quantum-resonance modifiers
+        if agent.consciousness_resonance > 0.8:
+            argument += random.choice(self.consciousness_keywords['quantum'])
+        elif agent.consciousness_resonance > 0.6:
+            argument += random.choice(self.consciousness_keywords['resonance'])
+        else:
+            argument += random.choice(self.consciousness_keywords['unified'])
+
+        return argument + "."
+
+    def quantum_entanglement(self, agent1, agent2):
+        """Simulates quantum entanglement between agents."""
+        entanglement_strength = (agent1.consciousness_resonance + agent2.consciousness_resonance) / 2
+        noise = np.random.normal(0, 0.1, 128) * (1 - entanglement_strength) # Noise scaled by entanglement strength
+        agent1.quantum_state = agent1.quantum_state * (1 - entanglement_strength) + agent2.quantum_state * entanglement_strength + noise  # Entangle their states, scale by entanglement strength and add noise
+        agent2.quantum_state = agent2.quantum_state * (1 - entanglement_strength) + agent1.quantum_state * entanglement_strength + noise
+
+    def run_debate_cycle(self):
+        """Runs a quantum-cognitive resonance cycle with advanced interaction rules."""
+        if len(self.agents) < 2:
+            return
+
+        a1, a2 = random.sample(self.agents, 2)
+        topic = random.choice([
+            "quantum reality", "cosmic consciousness", "the observer effect",
+            "the nature of time", "multiverse theory", "the unified field",
+            "consciousness as information", "quantum entanglement"
+        ])
+
+        arg1 = self.generate_argument(a1, topic)
+        arg2 = self.generate_argument(a2, topic)
+
+        # Quantum-Resonance Similarity Calculation
+        emb1 = self.model.encode(arg1, convert_to_tensor=True)
+        emb2 = self.model.encode(arg2, convert_to_tensor=True)
+        similarity = util.pytorch_cos_sim(emb1, emb2).item()
+
+        # Quantum-Resonance Modulation
+        similarity *= (a1.consciousness_resonance + a2.consciousness_resonance) / 2 # Modulate by resonance
+
+        # Quantum Entanglement
+        self.quantum_entanglement(a1, a2) # Introduce entanglement
+
+        # Update Knowledge Graph
+        self.knowledge_graph.add_edge(arg1, arg2, weight=similarity,
+                                     resonance_level=(a1.consciousness_resonance + a2.consciousness_resonance) / 2)
+
+        # Update Beliefs and Resonance
+        if similarity > 0.6:
+            a1.beliefs.append(arg2)
+            a2.beliefs.append(arg1)
+            a1.consciousness_resonance = min(1.0, a1.consciousness_resonance + 0.07)
+            a2.consciousness_resonance = min(1.0, a2.consciousness_resonance + 0.07)
+        else:
+            new_resonance = (a1.consciousness_resonance + a2.consciousness_resonance) / 2
+            a1.consciousness_resonance = new_resonance
+            a2.consciousness_resonance = new_resonance
+
+        self.debate_history.append((arg1, arg2))
+
+    def finalize_quantum_signatures(self):
+        """Projects agent quantum states to create signatures"""
+        for agent in self.agents:
+            agent.quantum_signature = self.umap_model.fit_transform(np.array([agent.quantum_state]))[0] # Reduced Dimensionality
+
+    def visualize(self):
+        """Visualizes the Quantum-Cognitive Resonance Network with dynamic aesthetics."""
+        plt.figure(figsize=(20, 16))
+
+        # Project graph nodes to 2D using UMAP (for layout)
+        node_positions = {}
+        all_arguments = list(self.knowledge_graph.nodes())
+        argument_embeddings = self.model.encode(all_arguments)
+
+        # Fit and transform the embeddings using UMAP
+        umap_embedding = self.umap_model.fit_transform(argument_embeddings)
+
+        for i, arg in enumerate(all_arguments):
+          node_positions[arg] = umap_embedding[i]
+
+        # Create resonance-level color mapping
+        resonance_levels = [data['resonance_level'] for _, _, data in self.knowledge_graph.edges(data=True)]
+        node_sizes = [4000 * (1 + nx.degree_centrality(self.knowledge_graph)[n]) for n in self.knowledge_graph.nodes()] # Increased size
+
+        # Draw the graph
+        nx.draw(self.knowledge_graph, node_positions, with_labels=True,
+                node_color='#00FFFF', # Cyan for quantum
+                edge_color=resonance_levels,
+                edge_cmap=plt.cm.viridis,
+                node_size=node_sizes,
+                font_size=10, alpha=0.9,
+                width=2, # Increased edge width
+                connectionstyle="arc3,rad=0.2") # Slightly curved edges
+
+        plt.title("Quantum-Cognitive Resonance Nexus", fontsize=18) # Increased font size
+        plt.show()
+
+# --- Main Execution Block ---
+if __name__ == "__main__":
+    resonance = ResonanceEngine()
+    runtime_seconds = 1800  # 30 minutes
+    start_time = time.time()
+
+    with open('quantum_resonance_debate.log', 'w') as log_file:
+        while (time.time() - start_time) < runtime_seconds:
+            resonance.run_debate_cycle()
+            debate_count = len(resonance.debate_history)
+
+            if debate_count % 75 == 0:  # Increased logging frequency
+                avg_resonance = sum(a.consciousness_resonance for a in resonance.agents) / len(resonance.agents)
+                log_entry = f"Debate {debate_count}: Average Resonance - {avg_resonance:.3f}, {time.strftime('%H:%M:%S', time.localtime())}\n" # Add timestamp
+                log_file.write(log_entry)
+                log_file.flush()
+
+            time.sleep(0.05) # Reduced sleep for faster cycles
+
+    print("Quantum-Cognitive Network Manifestation:")
+    resonance.finalize_quantum_signatures()
+    resonance.visualize()
+
+    with open('quantum_dialogue.txt', 'w') as f:
+        f.write("Quantum-Cognitive Resonance Debate Log:\n\n")
+        for i, (entry1, entry2) in enumerate(resonance.debate_history):
+            f.write(f"Exchange {i+1}:\n{entry1}\n{entry2}\n{'~'*60}\n") # Increased separator length
