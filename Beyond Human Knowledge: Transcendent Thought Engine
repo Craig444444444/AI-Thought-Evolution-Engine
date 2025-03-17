@@ -1,0 +1,700 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2025 Craig Huckerby. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# @title **Beyond Human Knowledge: Transcendent Thought Engine** 🌌
+!pip install networkx matplotlib sentence-transformers umap-learn qiskit python-docx PyPDF2 sumy scikit-learn sympy mpmath tqdm --quiet  # Install missing packages
+
+# --- Configuration ---
+import random
+import uuid
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+from sentence_transformers import SentenceTransformer, util
+import umap
+import numpy as np
+from qiskit import QuantumCircuit, transpile  # Removed Aer from here
+from qiskit.visualization import plot_histogram
+import threading
+import logging
+import os  # For file operations in Colab
+import docx
+import PyPDF2
+import re
+from typing import List, Dict, Optional
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import hashlib
+from sympy import symbols, Eq, solve  # Import sympy
+import mpmath  # Import mpmath
+from tqdm import tqdm  # Import tqdm
+from sklearn.cluster import AgglomerativeClustering
+
+# --- Sumy Imports for Summarization ---
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.text_rank import TextRankSummarizer
+
+from qiskit_aer import Aer  # Import Aer from qiskit_aer
+
+# --- Directory Setup for Colab ---
+OUTPUT_DIR = "/content/transcendent_engine_output"  # Colab-friendly directory
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+# --- Logging Setup ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(OUTPUT_DIR, 'engine.log')),  # Log to file
+        logging.StreamHandler()  # Log to console as well
+    ]
+)
+
+# --- Configuration ---
+NUM_AGENTS = 12  # Increased agent count
+RUNTIME_SECONDS = 7200  # 2 hours - allow more time for complex networks
+SIMILARITY_THRESHOLD = 0.6  # Adjusted for more varied interactions
+QUANTUM_NOISE_SCALE = 0.15  # Higher noise for unpredictable behavior
+LOGGING_INTERVAL = 50  # Reduced logging frequency
+VISUALIZATION_INTERVAL = 250  # Reduced for more frequent visual updates
+ARGUMENT_DIVERSITY = 0.8  # Higher to encourage diversity
+
+# --- Quantum State ---
+QUANTUM_STATE = {}
+QUANTUM_LOCK = threading.Lock()
+
+# --- Enhanced ThoughtAgent (Incorporating Character) ---
+class ThoughtAgent:
+    """Represents an agent in the transcendent thought engine."""
+    def __init__(self, role):
+        self.id = str(uuid.uuid4())
+        self.role = role
+        self.beliefs = []
+        self.quantum_state = np.random.rand(128)
+        self.consciousness_resonance = random.uniform(0.5, 1.0)
+        self.adaptability = random.uniform(0.3, 0.9)
+        self.memory = []
+        self.memory_capacity = 7
+
+        # Character Integration
+        self.knowledge_base = []
+        self.vectorizer = TfidfVectorizer()
+        self.tfidf_matrix = None
+        self.sentences = []
+        self.ingested_files = {}
+        self.sensitive_keywords = ["password", "credit card", "secret"]  # Default sensitive keywords
+        self.redaction_char = "*"
+        self.conversation_history = []
+        self.conversation_history_length = 3
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.sentence_embeddings = None
+        logging.info(f"ThoughtAgent {self.role} initialized.")
+
+    def quantum_entangle(self, other_agent, interaction_strength):
+        """Simulates quantum entanglement and state update."""
+        with QUANTUM_LOCK:
+            entanglement_strength = interaction_strength
+            noise = np.random.normal(0, QUANTUM_NOISE_SCALE, 128) * (1 - entanglement_strength)
+            self.quantum_state = self.quantum_state * (1 - entanglement_strength) + other_agent.quantum_state * entanglement_strength + noise
+            return self.quantum_state
+
+    def observe_quantum_state(self):
+        """Returns the agent's quantum state."""
+        return self.quantum_state
+
+    def remember_belief(self, belief):
+        """Stores beliefs in short-term memory."""
+        if len(self.memory) >= self.memory_capacity:
+            self.memory.pop(0)
+        self.memory.append(belief)
+
+    # --- Character Methods (Integrated) ---
+    def read_file(self, file_path: str) -> str:
+        """Reads a file and returns its content as a string."""
+        try:
+            if file_path.endswith(".docx"):
+                doc = docx.Document(file_path)
+                full_text = []
+                for para in doc.paragraphs:
+                    full_text.append(para.text)
+                return "\n".join(full_text)
+            elif file_path.endswith(".pdf"):
+                with open(file_path, "rb") as file:
+                    reader = PyPDF2.PdfReader(file)
+                    full_text = ""
+                    for page_num in range(len(reader.pages)):
+                        page = reader.pages[page_num]
+                        full_text += page.extract_text()
+                    return full_text
+            elif file_path.endswith(".txt"):
+                with open(file_path, "r", encoding="utf-8") as file:
+                    return file.read()  # Basic text file handling
+            else:
+                logging.warning(f"Unsupported file type: {file_path}")
+                return ""
+        except FileNotFoundError:
+            logging.error(f"File not found: {file_path}")
+            return ""
+        except Exception as e:
+            logging.error(f"Error reading file {file_path}: {e}")
+            return ""
+
+    def calculate_checksum(self, file_path: str) -> str:
+        """Calculates the SHA-256 checksum of a file."""
+        hasher = hashlib.sha256()
+        try:
+            with open(file_path, 'rb') as file:
+                while True:
+                    chunk = file.read(4096)  # Read in chunks
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except (IOError, OSError) as e:
+            logging.error(f"Error calculating checksum for {file_path}: {e}")
+            return None
+
+    def ingest_document(self, file_path: str) -> bool:
+        """Ingests a document into the character's knowledge base,
+        with incremental update check. Includes summarization and content filtering."""
+        try:
+            checksum = self.calculate_checksum(file_path)
+            if checksum is None:
+                return False
+            if file_path in self.ingested_files and self.ingested_files[file_path] == checksum:
+                logging.info(f"Document {file_path} already ingested and up-to-date.")
+                return True
+
+            content = self.read_file(file_path)
+            if content:
+                summary = self.summarize_text(content)
+                if summary:
+                    redacted_summary = self.redact_sensitive_content(summary)
+                    self.knowledge_base.append(redacted_summary)
+                    self.ingested_files[file_path] = checksum
+                    self.update_tfidf()
+                    self.update_sentence_embeddings()
+                    logging.info(f"Document ingested/updated (summarized and redacted) for character {self.role}.")
+                    return True
+                else:
+                    logging.warning(f"Failed to summarize the document for {self.role}. Document not ingested.")
+                    return False
+            else:
+                logging.warning(f"Failed to ingest document for {self.role} due to empty content.")
+                return False
+        except Exception as e:
+            logging.error(f"Error ingesting document for {self.role}: {e}")
+            return False
+
+    def summarize_text(self, text: str, ratio: float = 0.2) -> str:
+        """Summarizes the input text using Sumy's TextRank algorithm."""
+        try:
+            # Calculate number of sentences to return based on the ratio of total sentences
+            total_sentences = len(text.split('.'))
+            num_sentences = max(1, int(total_sentences * ratio))
+            parser = PlaintextParser.from_string(text, Tokenizer("english"))
+            summarizer = TextRankSummarizer()
+            summary_sentences = summarizer(parser.document, num_sentences)
+            summary = " ".join(str(sentence) for sentence in summary_sentences)
+            if summary.strip():
+                return summary
+            else:
+                logging.warning("Summarization failed: Summary is empty.")
+                return ""
+        except Exception as e:
+            logging.error(f"Summarization error: {e}")
+            return ""
+
+    def redact_sensitive_content(self, text: str) -> str:
+        """Redacts sensitive keywords from the text."""
+        if self.sensitive_keywords:
+            for keyword in self.sensitive_keywords:
+                text = re.sub(re.escape(keyword), self.redaction_char * len(keyword), text, flags=re.IGNORECASE)
+        return text
+
+    def update_tfidf(self):
+         """Updates the TF-IDF matrix and sentences after a new document is added."""
+         if self.knowledge_base:
+             self.sentences = []
+             for doc in self.knowledge_base:
+                 sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', doc)
+                 self.sentences.extend(sentences)
+             self.tfidf_matrix = self.vectorizer.fit_transform(self.sentences)
+             logging.info(f"TF-IDF matrix updated with {len(self.sentences)} sentences.")
+         else:
+             self.tfidf_matrix = None
+             self.sentences = []
+             logging.info("TF-IDF matrix reset (knowledge base empty).")
+
+    def update_sentence_embeddings(self):
+        """Updates sentence embeddings after a new document is added or removed."""
+        if self.knowledge_base:
+            self.sentences = []
+            for doc in self.knowledge_base:
+                sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', doc)
+                self.sentences.extend(sentences)
+            self.sentence_embeddings = self.model.encode(self.sentences, convert_to_tensor=True)
+            logging.info(f"Sentence embeddings updated with {len(self.sentences)} sentences.")
+        else:
+            self.sentence_embeddings = None
+            self.sentences = []
+            logging.info("Sentence embeddings reset (knowledge base empty).")
+
+    def semantic_search(self, query: str, top_k: int = 3) -> Optional[List[tuple]]:
+        """Performs semantic search using sentence transformers."""
+        if self.sentence_embeddings is None:
+            return None
+
+        query_embedding = self.model.encode(query, convert_to_tensor=True)
+        cosine_scores = util.cos_sim(query_embedding, self.sentence_embeddings)[0]
+        results = zip(range(len(cosine_scores)), cosine_scores)
+        results = sorted(results, key=lambda x: x[1], reverse=True)
+        top_results = [(index, score.item()) for index, score in results[:top_k]]
+        return top_results
+
+    def get_contextual_query(self, query: str) -> str:
+        """Combines the current query with the conversation history."""
+        if not self.conversation_history:
+            return query
+        contextual_query = " ".join(self.conversation_history + [query])
+        return contextual_query
+
+    def respond_to_query(self, query: str) -> str:
+        """Responds to a user's query based on the knowledge base using semantic search."""
+        if not self.knowledge_base:
+            return "I don't have any information yet. Ingest a document first."
+        try:
+            contextual_query = self.get_contextual_query(query)
+            top_results = self.semantic_search(contextual_query)
+
+            if top_results:
+                best_index, best_score = top_results[0]
+                if best_score > 0.6:  # Adjust the threshold as needed
+                    response = self.sentences[best_index][:200] + "..."  # Return a snippet
+                    redacted_response = self.redact_sensitive_content(response)
+                    self.conversation_history.append(query)
+                    if len(self.conversation_history) > self.conversation_history_length:
+                        self.conversation_history.pop(0)
+                    return redacted_response
+                else:
+                    return "I didn't find anything relevant in my knowledge base."
+            else:
+                return "I didn't find anything relevant in my knowledge base."
+        except Exception as e:
+            logging.error(f"Error during query processing: {e}")
+            return "I encountered an error while processing your query."
+
+    # --- New Methods for Mathematical Processing ---
+    def process_equation(self, eq_str: str) -> str:
+        """Processes a mathematical equation."""
+        try:
+            x = symbols("x")
+            equation = Eq(eval(eq_str.replace("=", "-(") + ")"), 0)
+            solution = solve(equation, x)
+            return f"Equation: {eq_str} | Solution: {solution}"
+        except Exception as e:
+            return f"Error solving equation: {str(e)}"
+
+    def test_riemann_hypothesis(self, num_points: int = 1000) -> str:
+        """Tests the Riemann Hypothesis numerically."""
+        try:
+            mpmath.mp.dps = 100  # Set precision
+            start_im = 100  # Start at t = 100
+            step = 1  # Increment by 1
+            end_im = start_im + num_points  # End after num_points iterations
+            counterexamples = []
+            for im in tqdm(np.arange(start_im, end_im, step), desc="Testing Riemann Hypothesis"):
+                s = 0.5 + im * 1j  # Critical line
+                value = mpmath.zeta(s)
+                magnitude = abs(value)
+                is_zero = magnitude < 1e-10  # Tolerance for zero
+                violates_rh = (s.real != 0.5) and is_zero
+                if violates_rh:
+                    counterexamples.append((s, value))
+                    logging.warning(f"Counterexample found: {s} | ζ(s): {value}")
+                    break  # Stop after finding a counterexample
+
+            if counterexamples:
+                return f"Riemann Hypothesis: Counterexamples found! (Tested {num_points} points). {counterexamples}"
+            else:
+                return f"Riemann Hypothesis: No counterexamples found (tested {num_points} points). It holds for the tested points."
+
+        except Exception as e:
+            logging.error(f"Error testing Riemann Hypothesis: {e}")
+            return f"Error testing Riemann Hypothesis: {e}"
+
+# --- Debate Engine Class ---
+class DebateEngine:
+    """Manages the transcendent debate process."""
+    def __init__(self):
+        self.agents = [ThoughtAgent(role) for role in [
+            "Cosmic Architect", "Ethereal Weaver", "Singularity Seeker",
+            "Quantum Oracle", "Void Explorer", "Transcendent Observer",
+            "Reality Bender", "Information Alchemist", "Nexus Weaver",
+            "Omniscient Navigator", "Potentiality Mapper", "Eschaton Seer"  # More esoteric roles
+        ]]
+        self.knowledge_graph = nx.Graph()
+        self.debate_history = []
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.consciousness_keywords = {
+            'quantum': ['superposition', 'entanglement', 'wave-function', 'decoherence', 'quantum foam', 'non-locality'],
+            'resonance': ['harmonic', 'vibrational', 'frequency', 'attunement', 'synchronicity', 'resonance cascade'],
+            'unified': ['holistic', 'interconnected', 'non-local', 'integrated', 'omnipresent', 'unified field', 'singularity']
+        }
+        # Expanded keywords for beyond-human concepts
+        self.transcendent_keywords = {
+            'dimensional': ['hyperdimensional', 'multiversal', 'extra-universal', 'omniverse', 'metaversal'],
+            'ontological': ['axiomatic', 'primordial', 'grounding', 'fundamental', 'causality-bending'],
+            'epistemological': ['gnostic', 'apocalyptic', 'revelatory', 'intuitive', 'acausal']
+        }
+        self.umap_model = umap.UMAP(n_neighbors=5, min_dist=0.3, metric='cosine', random_state=42)
+        self.quantum_simulator = Aer.get_backend('qasm_simulator')
+
+    def generate_argument(self, agent, topic):
+        """Generates arguments with a focus on transcendent concepts."""
+        base_structure = [
+            f"{agent.role} postulates: {topic} is a manifestation of {random.choice(['quantum fluctuations', 'cosmic information', 'dimensional resonance'])}.",
+            f"{agent.role} theorizes: Consciousness {random.choice(['resonates', 'interferes', 'collapses', 'transcends'])} the fabric of {random.choice(['reality', 'existence', 'the multiverse'])} to shape {topic}.",
+            f"{agent.role} contemplates: {topic} emerges from a {random.choice(['harmonic', 'vibrational', 'superimposed', 'acausal'])} state of {random.choice(['consciousness', 'awareness', 'potentiality'])}."
+        ]
+
+        # Add the new topic to base structures
+        if "DNA" in topic.upper():
+            base_structure.extend([
+                f"{agent.role} considers: Whether or not {topic} {random.choice(['is', 'is not'])} pre defined is a key question.",
+                f"{agent.role} suggests: The nature of {topic} is inextricably linked to whether it {random.choice(['is', 'is not'])} pre defined."
+            ])
+
+        argument = random.choice(base_structure)
+
+        # Add keywords based on agent's resonance and argument diversity
+        keyword_source = self.consciousness_keywords
+        if agent.consciousness_resonance > 0.7:
+            keyword_source = self.consciousness_keywords
+        elif agent.consciousness_resonance > 0.4:
+            keyword_source = self.transcendent_keywords
+        else:
+            keyword_source = self.transcendent_keywords
+
+        if random.random() < ARGUMENT_DIVERSITY:  # Introduce diversity
+            if keyword_source == self.consciousness_keywords:
+                 argument += " " + random.choice(self.consciousness_keywords['quantum'])
+            else:
+                argument += " " + random.choice(self.transcendent_keywords['dimensional'])
+
+        if random.random() < ARGUMENT_DIVERSITY:
+            if keyword_source == self.consciousness_keywords:
+                argument += " " + random.choice(self.consciousness_keywords['resonance'])
+            else:
+                argument += " " + random.choice(self.transcendent_keywords['ontological'])
+
+        if random.random() < ARGUMENT_DIVERSITY:
+            if keyword_source == self.consciousness_keywords:
+                argument += " " + random.choice(self.consciousness_keywords['unified'])
+            else:
+                argument += " " + random.choice(self.transcendent_keywords['epistemological'])
+        return argument + "."
+
+    def run_debate_cycle(self):
+        """Runs a debate cycle with enhanced interaction rules."""
+        if len(self.agents) < 2:
+            return
+
+        a1, a2 = random.sample(self.agents, 2)
+        topic = random.choice([
+            "quantum reality", "cosmic consciousness", "the observer effect",
+            "the nature of time", "multiverse theory", "the unified field",
+            "consciousness as information", "quantum entanglement", "the simulation hypothesis",
+            "the nature of the void", "higher dimensions", "ontological collapse", "acausal events",  # New Topics
+            "DNA pre defined"  # Include DNA topic directly
+        ])
+
+        arg1 = self.generate_argument(a1, topic)
+        arg2 = self.generate_argument(a2, topic)
+
+        # Similarity Calculation
+        emb1 = self.model.encode(arg1, convert_to_tensor=True)
+        emb2 = self.model.encode(arg2, convert_to_tensor=True)
+        similarity = util.pytorch_cos_sim(emb1, emb2).item()
+
+        # Consciousness-Resonance Modulation
+        similarity *= (a1.consciousness_resonance + a2.consciousness_resonance) / 2
+
+        # Quantum Entanglement
+        a1.quantum_entangle(a2, similarity)
+        a2.quantum_entangle(a1, similarity)
+
+        # Update Knowledge Graph
+        self.knowledge_graph.add_edge(arg1, arg2, weight=similarity,
+                                      resonance_level=(a1.consciousness_resonance + a2.consciousness_resonance) / 2)
+
+        # Belief and Resonance Updates
+        if similarity > SIMILARITY_THRESHOLD:
+            a1.beliefs.append(arg2)
+            a2.beliefs.append(arg1)
+            a1.remember_belief(arg2)
+            a2.remember_belief(arg1)
+            a1.consciousness_resonance = min(1.0, a1.consciousness_resonance + 0.05)
+            a2.consciousness_resonance = min(1.0, a2.consciousness_resonance + 0.05)
+        else:
+            new_resonance = (a1.consciousness_resonance + a2.consciousness_resonance) / 2
+            a1.consciousness_resonance = new_resonance
+            a2.consciousness_resonance = new_resonance
+
+        self.debate_history.append((arg1, arg2))
+
+    def finalize_quantum_signatures(self):
+        """Projects agent quantum states to create signatures for visualization."""
+        quantum_states = np.array([agent.quantum_state for agent in self.agents])
+        self.umap_model.fit(quantum_states)
+        for agent in self.agents:
+            agent.quantum_signature = self.umap_model.transform(np.array([agent.quantum_state]))[0]
+
+    def visualize(self):
+        """Visualizes the hyper-dimensional consciousness network with enhanced aesthetics."""
+        plt.figure(figsize=(24, 20))
+
+        # Project graph nodes to 2D using UMAP (for layout)
+        node_positions = {}
+        all_arguments = list(self.knowledge_graph.nodes())
+        argument_embeddings = self.model.encode(all_arguments)
+
+        umap_embedding = self.umap_model.fit_transform(argument_embeddings)
+
+        for i, arg in enumerate(all_arguments):
+          node_positions[arg] = umap_embedding[i]
+
+        # Edge colors based on resonance_level
+        resonance_levels = [data['resonance_level'] for _, _, data in self.knowledge_graph.edges(data=True)]
+        edge_colors = [plt.cm.viridis(level) for level in resonance_levels]
+
+        # Node size: Degree Centrality + Memory
+        node_sizes = []
+        for arg in self.knowledge_graph.nodes():
+            try:
+                agent = next(agent for agent in self.agents if any(arg in belief for belief in [a.beliefs for a in self.agents]) or agent.role in arg)
+                size = 4000 * (1 + nx.degree_centrality(self.knowledge_graph)[arg]) + 750 * len(agent.memory)  # Increased memory influence
+                node_sizes.append(size)
+            except StopIteration:
+                node_sizes.append(1000)
+
+        # Node colors: Role-Based
+        role_colors = {
+            "Cosmic Architect": '#00FFFF',  # Cyan
+            "Ethereal Weaver": '#FF69B4',    # Hot Pink
+            "Singularity Seeker": '#7B68EE',   # Medium Slate Blue
+            "Quantum Oracle": '#FFA500',   # Orange
+            "Void Explorer": '#98FB98',   # Pale Green
+            "Transcendent Observer": '#F0E68C',   # Khaki
+            "Reality Bender": '#D87093',   # Pale Violet Red
+            "Information Alchemist": '#87CEEB',   # Sky Blue
+            "Nexus Weaver": '#FFB6C1',  # Light Pink
+            "Omniscient Navigator": '#00CED1',  # Dark Turquoise
+            "Potentiality Mapper": '#ADD8E6',  # Light Blue
+            "Eschaton Seer": '#F08080'  # Light Coral
+        }
+        node_colors = []
+        for arg in self.knowledge_graph.nodes():
+            try:
+                agent = next(agent for agent in self.agents if any(arg in belief for belief in [a.beliefs for a in self.agents]) or agent.role in arg)
+                node_colors.append(role_colors.get(agent.role, '#808080'))
+            except StopIteration:
+                node_colors.append('#808080')
+
+        nx.draw(self.knowledge_graph, node_positions, with_labels=True,
+                node_color=node_colors,
+                edge_color=edge_colors,
+                edge_cmap=plt.cm.viridis,
+                node_size=node_sizes,
+                font_size=10,
+                alpha=0.9,
+                width=2,
+                connectionstyle="arc3,rad=0.2")
+
+        plt.title("Hyper-Dimensional Consciousness Nexus", fontsize=20)
+        plt.tight_layout()
+        plt.savefig(os.path.join(OUTPUT_DIR, "consciousness_nexus.png"))  # Save to file
+        plt.show()
+
+    def summarize_debate(self, top_n_clusters=3):
+        """Generates a summary of the debate using clustering and representative arguments."""
+        if not self.debate_history:
+            return "No debate history available."
+
+        arguments = [arg for pair in self.debate_history for arg in pair]
+        if not arguments:
+            return "No arguments to summarize."
+
+        # 1. Embeddings
+        argument_embeddings = self.model.encode(arguments, convert_to_tensor=True)
+        argument_embeddings = argument_embeddings.cpu().numpy()
+
+        # 2. Clustering
+        if len(arguments) > 1:
+            clustering_model = AgglomerativeClustering(n_clusters=min(top_n_clusters, len(arguments)),
+                                                    metric='cosine', linkage='average')
+            clustering_model.fit(argument_embeddings)
+            clusters = {}
+            for i, label in enumerate(clustering_model.labels_):
+                if label not in clusters:
+                    clusters[label] = []
+                clusters[label].append(i)
+        else:
+            # If only one argument, treat it as a single cluster
+            clusters = {0: [0]}
+
+        # 3. Identify Representative Arguments (using the centroid)
+        representative_arguments = {}
+        for cluster_id, indices in clusters.items():
+            cluster_embeddings = argument_embeddings[indices]
+            centroid = np.mean(cluster_embeddings, axis=0)
+            # Find the argument closest to the centroid
+            similarities = cosine_similarity([centroid], cluster_embeddings)[0]
+            representative_index = indices[np.argmax(similarities)]
+            representative_arguments[cluster_id] = arguments[representative_index]
+
+        # 4. Generate Summary
+        summary = "Debate Summary:\n"
+        for cluster_id, representative_arg in representative_arguments.items():
+            summary += f"  - Topic: {representative_arg[:100]}... (Representative Argument)\n"
+        return summary
+
+    def track_belief_evolution(self):
+        """Tracks changes in agent beliefs over time."""
+        belief_evolution = {}
+        for agent in self.agents:
+            belief_evolution[agent.role] = []  # Use agent role as the key
+            for belief in agent.beliefs:
+                belief_evolution[agent.role].append(belief)
+        return belief_evolution
+
+# --- Main Execution Block ---
+if __name__ == "__main__":
+    engine = DebateEngine()
+    start_time = time.time()
+
+    # --- Populate agents with knowledge from files ---
+    test_docs = [
+        "/content/quantum_computing_intro.txt",
+        "/content/riemann_hypothesis_summary.pdf",
+        "/content/sensitive_info.txt"  # Test document with sensitive info
+    ]
+    for agent in engine.agents:
+        for doc in test_docs:
+            if os.path.exists(doc):
+                if agent.ingest_document(doc):
+                    logging.info(f"Agent {agent.role} successfully ingested {doc}")
+                else:
+                    logging.warning(f"Agent {agent.role} failed to ingest {doc}")
+            else:
+                logging.warning(f"Test document not found: {doc}. Please upload to /content/ for Agent {agent.role}.")
+
+    # --- Interactive Chat Loop ---
+    try:
+        while True:
+            user_input = input("You: ")
+            if user_input.lower() == "exit":
+                print("Transcendent Engine: Goodbye!")
+                break
+            elif user_input.lower().startswith("ingest"):
+                try:
+                    file_path = user_input.split(" ", 1)[1].strip()
+                    if not file_path.startswith("/content/"):
+                        print("Error: Please provide a file path within /content/ (Colab environment).")
+                        continue
+                    # Ingest document into a random agent's knowledge base
+                    agent = random.choice(engine.agents)
+                    if agent.ingest_document(file_path):
+                        print(f"Successfully ingested document into {agent.role}'s knowledge base.")
+                    else:
+                        print("Failed to ingest document.")
+                except IndexError:
+                    print("Please provide a file path after 'ingest'.")
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+            elif user_input.lower().startswith("query"):
+                try:
+                    query = user_input.split(" ", 1)[1].strip()
+                    # Respond using a random agent's knowledge base
+                    agent = random.choice(engine.agents)
+                    response = agent.respond_to_query(query)
+                    print(f"{agent.role}: {response}")
+                except IndexError:
+                    print("Please provide a query after 'query'.")
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+            elif user_input.lower().startswith("solve"):  # New command
+                try:
+                    equation = user_input.split(" ", 1)[1].strip()
+                    agent = random.choice(engine.agents)  # Use a random agent
+                    result = agent.process_equation(equation)
+                    print(f"{agent.role}: {result}")
+                except IndexError:
+                    print("Please provide an equation after 'solve'.")
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+            elif user_input.lower().startswith("test_rh"):  # New command
+                try:
+                    num_points = int(user_input.split(" ", 1)[1].strip()) if len(user_input.split(" ", 1)) > 1 else 1000
+                    agent = random.choice(engine.agents)
+                    result = agent.test_riemann_hypothesis(num_points)
+                    print(f"{agent.role}: {result}")
+                except ValueError:
+                    print("Please provide a valid integer for the number of points to test.")
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+            else:
+                print("Please use 'ingest [file_path]', 'query [your_query]', 'solve [equation]', 'test_rh [num_points]' or 'exit'.")
+
+            # Run a debate cycle occasionally during the chat
+            if random.random() < 0.2:
+                engine.run_debate_cycle()
+
+    except KeyboardInterrupt:
+        logging.warning("Interrupted by user. Saving progress...")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}", exc_info=True)
+    finally:
+        logging.info("Finalizing and Saving...")
+        engine.finalize_quantum_signatures()
+        engine.visualize()
+
+        # Generate and save the debate summary and belief evolution
+        engine.debate_summary = engine.summarize_debate()
+        engine.belief_evolution_data = engine.track_belief_evolution()
+
+        with open(os.path.join(OUTPUT_DIR, 'hyperdimensional_debate.txt'), 'w') as f:
+            f.write("Hyper-Dimensional Debate Log:\n\n")
+            for i, (entry1, entry2) in enumerate(engine.debate_history):
+                f.write(f"Exchange {i+1}:\n{entry1}\n{entry2}\n{'~'*60}\n")
+            f.write("\n" + engine.debate_summary + "\n")  # Append the summary
+            f.write("\nBelief Evolution:\n")
+            for agent_role, beliefs in engine.belief_evolution_data.items():
+                f.write(f"{agent_role}: {beliefs}\n")
+
+        # Print the full output to Colab
+        print("\n--- Hyper-Dimensional Debate Log ---")
+        for i, (entry1, entry2) in enumerate(engine.debate_history):
+            print(f"Exchange {i+1}:\n{entry1}\n{entry2}\n{'~'*60}")
+        print("\n--- Debate Summary ---")
+        print(engine.debate_summary)
+        print("\n--- Belief Evolution ---")
+        for agent_role, beliefs in engine.belief_evolution_data.items():
+            print(f"{agent_role}: {beliefs}")
+        print("\n--- End of Debate ---")
+        print("\nCopyright (c) 2025 Craig Huckerby. All rights reserved.")
