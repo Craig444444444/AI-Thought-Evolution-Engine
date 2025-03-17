@@ -1,0 +1,273 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2025 Craig Huckerby. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# @title **Hyper-Dimensional Consciousness Synthesis Engine** ⚛️
+!pip install networkx matplotlib sentence-transformers umap-learn --quiet  # Added umap for dimensionality reduction and qiskit
+
+import random
+import uuid
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+from sentence_transformers import SentenceTransformer, util
+import umap
+import numpy as np
+from qiskit import QuantumCircuit, transpile, Aer
+from qiskit.visualization import plot_histogram
+import threading
+import logging
+
+# --- Configuration ---
+NUM_AGENTS = 10  # Increased for more complex interactions
+RUNTIME_SECONDS = 3600  # Increased to 1 hour.  Adjust as needed, more time allows for more complex networks.
+SIMILARITY_THRESHOLD = 0.65  # Adjusted for more nuanced belief changes
+QUANTUM_NOISE_SCALE = 0.1  # Controls the level of randomness in quantum interactions
+LOGGING_INTERVAL = 100 # Log every X debate cycles
+VISUALIZATION_INTERVAL = 500 # Visualize the graph periodically
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# --- Quantum State ---
+QUANTUM_STATE = {}
+QUANTUM_LOCK = threading.Lock()
+
+# --- Agent Class ---
+class ThoughtAgent:
+    """Represents an agent in the hyper-dimensional consciousness synthesis engine."""
+    def __init__(self, role):
+        self.id = str(uuid.uuid4())
+        self.role = role
+        self.beliefs = []
+        self.quantum_state = np.random.rand(128)  # Higher dimensional quantum state
+        self.consciousness_resonance = random.uniform(0.6, 1.0)  # Resonance with the "quantum field"
+        self.adaptability = random.uniform(0.4, 0.9)
+        self.memory = [] # Short-term memory
+        self.memory_capacity = 5 # Limited memory for now
+
+    def quantum_entangle(self, other_agent, interaction_strength):
+        """Simulates quantum entanglement and state update."""
+        with QUANTUM_LOCK:
+            entanglement_strength = interaction_strength  # Use direct similarity as entanglement strength
+            noise = np.random.normal(0, QUANTUM_NOISE_SCALE, 128) * (1 - entanglement_strength)
+            # Entanglement:  A weighted average of states + noise
+            self.quantum_state = self.quantum_state * (1 - entanglement_strength) + other_agent.quantum_state * entanglement_strength + noise
+            return self.quantum_state #Return the new state
+
+    def observe_quantum_state(self):
+        """Returns the agent's quantum state"""
+        return self.quantum_state
+
+    def remember_belief(self, belief):
+        """Stores beliefs in short-term memory."""
+        if len(self.memory) >= self.memory_capacity:
+            self.memory.pop(0)  # Remove oldest
+        self.memory.append(belief)
+
+# --- Debate Engine Class ---
+class DebateEngine:
+    """Manages the hyper-dimensional debate process."""
+    def __init__(self):
+        self.agents = [ThoughtAgent(role) for role in [
+            "Quantum Observer", "Cosmic Weaver", "Reality Architect", "Singularity Seeker",
+            "Ethereal Navigator", "Infinite Surveyor", "Potentiality Explorer", "Unified Field Thinker",
+            "Hyper-Dimensional Analyst", "Consciousness Mapper"
+        ]]
+        self.knowledge_graph = nx.Graph()
+        self.debate_history = []
+        self.model = SentenceTransformer('all-MiniLM-L6-v2') #Sentence transformer model
+        self.consciousness_keywords = {
+            'quantum': ['superposition', 'entanglement', 'wave-function', 'decoherence', 'quantum foam'],
+            'resonance': ['harmonic', 'vibrational', 'frequency', 'attunement', 'synchronicity'],
+            'unified': ['holistic', 'interconnected', 'non-local', 'integrated', 'omnipresent']
+        }
+        self.umap_model = umap.UMAP(n_neighbors=5, min_dist=0.3, metric='cosine', random_state=42)
+        self.quantum_simulator = Aer.get_backend('qasm_simulator') # Use QASM simulator
+
+    def generate_argument(self, agent, topic):
+        """Generates quantum-resonant arguments with dynamic vocabulary."""
+        base_structure = [
+            f"{agent.role} observes: {topic} is a result of quantum {random.choice(['fluctuations', 'interactions', 'entanglements'])}.",
+            f"{agent.role} postulates: Consciousness {random.choice(['resonates', 'interferes', 'collapses'])} the quantum field to manifest {topic}.",
+            f"{agent.role} theorizes: {topic} emerges from a {random.choice(['harmonic', 'vibrational', 'superimposed'])} state of consciousness."
+        ]
+        argument = random.choice(base_structure)
+
+        # Add quantum-resonance modifiers
+        if agent.consciousness_resonance > 0.8:
+            argument += " " + random.choice(self.consciousness_keywords['quantum'])
+        elif agent.consciousness_resonance > 0.6:
+            argument += " " + random.choice(self.consciousness_keywords['resonance'])
+        else:
+            argument += " " + random.choice(self.consciousness_keywords['unified'])
+
+        return argument + "."
+
+    def run_debate_cycle(self):
+        """Runs a hyper-dimensional debate cycle with enhanced interaction rules."""
+        if len(self.agents) < 2:
+            return
+
+        a1, a2 = random.sample(self.agents, 2)
+        topic = random.choice([
+            "quantum reality", "cosmic consciousness", "the observer effect",
+            "the nature of time", "multiverse theory", "the unified field",
+            "consciousness as information", "quantum entanglement", "the simulation hypothesis"
+        ])
+
+        arg1 = self.generate_argument(a1, topic)
+        arg2 = self.generate_argument(a2, topic)
+
+        # Similarity Calculation
+        emb1 = self.model.encode(arg1, convert_to_tensor=True)
+        emb2 = self.model.encode(arg2, convert_to_tensor=True)
+        similarity = util.pytorch_cos_sim(emb1, emb2).item()
+
+        # Consciousness-Resonance Modulation
+        similarity *= (a1.consciousness_resonance + a2.consciousness_resonance) / 2
+
+        # Quantum Entanglement
+        a1.quantum_entangle(a2, similarity) # Entangle agents based on similarity
+        a2.quantum_entangle(a1, similarity)
+
+        # Update Knowledge Graph
+        self.knowledge_graph.add_edge(arg1, arg2, weight=similarity,
+                                      resonance_level=(a1.consciousness_resonance + a2.consciousness_resonance) / 2)
+
+        # Belief and Resonance Updates - More nuanced updates
+        if similarity > SIMILARITY_THRESHOLD:
+            a1.beliefs.append(arg2)
+            a2.beliefs.append(arg1)
+            a1.remember_belief(arg2)
+            a2.remember_belief(arg1)
+            a1.consciousness_resonance = min(1.0, a1.consciousness_resonance + 0.07)
+            a2.consciousness_resonance = min(1.0, a2.consciousness_resonance + 0.07)
+        else:
+            new_resonance = (a1.consciousness_resonance + a2.consciousness_resonance) / 2
+            a1.consciousness_resonance = new_resonance
+            a2.consciousness_resonance = new_resonance
+
+        self.debate_history.append((arg1, arg2))
+
+    def finalize_quantum_signatures(self):
+        """Projects agent quantum states to create signatures for visualization."""
+        # Combine all quantum states into a single numpy array
+        quantum_states = np.array([agent.quantum_state for agent in self.agents])
+        # Use UMAP to reduce the dimensionality of the quantum states to 2D
+        self.umap_model.fit(quantum_states) # Fit on the combined states
+        for agent in self.agents:
+            agent.quantum_signature = self.umap_model.transform(np.array([agent.quantum_state]))[0]
+
+    def visualize(self):
+        """Visualizes the hyper-dimensional consciousness network with enhanced aesthetics."""
+        plt.figure(figsize=(24, 20)) # Increased figure size for clarity
+
+        # Project graph nodes to 2D using UMAP (for layout)
+        node_positions = {}
+        all_arguments = list(self.knowledge_graph.nodes())
+        argument_embeddings = self.model.encode(all_arguments)
+
+        # Fit and transform the embeddings using UMAP
+        umap_embedding = self.umap_model.fit_transform(argument_embeddings)
+
+        for i, arg in enumerate(all_arguments):
+          node_positions[arg] = umap_embedding[i]
+
+        # Edge colors based on resonance_level
+        resonance_levels = [data['resonance_level'] for _, _, data in self.knowledge_graph.edges(data=True)]
+        edge_colors = [plt.cm.viridis(level) for level in resonance_levels]
+
+        # Node size: Degree Centrality + Memory
+        node_sizes = []
+        for arg in self.knowledge_graph.nodes():
+            # Get the agent associated with the argument
+            try:
+                agent = next(agent for agent in self.agents if any(arg in belief for belief in [a.beliefs for a in self.agents] ) or agent.role in arg)
+                size = 4000 * (1 + nx.degree_centrality(self.knowledge_graph)[arg]) + 500 * len(agent.memory)
+                node_sizes.append(size)
+            except StopIteration:
+                node_sizes.append(1000) # Default if no agent is found
+        # Node colors: Role-Based
+        role_colors = {
+            "Quantum Observer": '#00FFFF',  # Cyan
+            "Cosmic Weaver": '#FF69B4',    # Hot Pink
+            "Reality Architect": '#7B68EE',   # Medium Slate Blue
+            "Singularity Seeker": '#FFA500',   # Orange
+            "Ethereal Navigator": '#98FB98',   # Pale Green
+            "Infinite Surveyor": '#F0E68C',   # Khaki
+            "Potentiality Explorer": '#D87093',   # Pale Violet Red
+            "Unified Field Thinker": '#87CEEB',   # Sky Blue
+            "Hyper-Dimensional Analyst": '#FFB6C1', # Light Pink
+            "Consciousness Mapper": '#00CED1'  # Dark Turquoise
+        }
+        node_colors = []
+        for arg in self.knowledge_graph.nodes():
+            try:
+                agent = next(agent for agent in self.agents if any(arg in belief for belief in [a.beliefs for a in self.agents]) or agent.role in arg)
+                node_colors.append(role_colors.get(agent.role, '#808080'))  # Default Grey
+            except StopIteration:
+                node_colors.append('#808080')  # Default Grey
+
+        # Draw the graph
+        nx.draw(self.knowledge_graph, node_positions, with_labels=True,
+                node_color=node_colors,
+                edge_color=edge_colors,
+                edge_cmap=plt.cm.viridis,
+                node_size=node_sizes,
+                font_size=10,
+                alpha=0.9,
+                width=2,
+                connectionstyle="arc3,rad=0.2") # Curved edges
+
+        plt.title("Hyper-Dimensional Consciousness Nexus", fontsize=20)
+        plt.tight_layout()  # Adjust layout to make room for title and labels
+        plt.show()
+
+# --- Main Execution Block ---
+if __name__ == "__main__":
+    # Initialize
+    engine = DebateEngine()
+    start_time = time.time()
+
+    # --- Main Loop with Logging and Visualization ---
+    try:
+        for i in range(int(RUNTIME_SECONDS / 0.1)): # Run for the specified time, with 0.1 second intervals
+            engine.run_debate_cycle()
+
+            if i % LOGGING_INTERVAL == 0:
+                avg_resonance = sum(a.consciousness_resonance for a in engine.agents) / len(engine.agents)
+                logging.info(f"Debate Cycle: {i}, Avg. Resonance: {avg_resonance:.3f}")
+
+            if i % VISUALIZATION_INTERVAL == 0 and i > 0: # Visualize periodically, but not at the very start
+                logging.info("Generating Visualization...")
+                engine.finalize_quantum_signatures()
+                engine.visualize()
+            time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        logging.warning("Interrupted by user.  Saving progress...")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}", exc_info=True)
+    finally:
+        # Final Visualization and Save
+        logging.info("Finalizing and Saving...")
+        engine.finalize_quantum_signatures()
+        engine.visualize()
+
+        with open('hyperdimensional_debate.txt', 'w') as f:
+            f.write("Hyper-Dimensional Debate Log:\n\n")
+            for i, (entry1, entry2) in enumerate(engine.debate_history):
+                f.write(f"Exchange {i+1}:\n{entry1}\n{entry2}\n{'~'*60}\n")
