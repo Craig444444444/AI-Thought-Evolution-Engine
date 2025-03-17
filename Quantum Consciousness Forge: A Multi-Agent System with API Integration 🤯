@@ -1,0 +1,313 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2025 Craig Huckerby. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# @title Quantum Consciousness Forge: A Multi-Agent System with API Integration 🤯
+!pip install networkx matplotlib sentence-transformers requests websockets --quiet
+
+import random
+import uuid
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+from sentence_transformers import SentenceTransformer, util
+import requests  # For API calls
+import json      # For handling API data
+import websockets # For real-time data streams
+import asyncio   # For asynchronous operations
+import threading # For multi-threading
+
+# --- API KEYS (USE WITH CAUTION - NEVER COMMIT TO REPOS) ---
+API_KEY_CRYPTO = "YOUR_CRYPTO_API_KEY"  # Replace with a REAL API KEY (e.g., from CoinMarketCap, Binance, etc.)
+API_KEY_NEWS = "YOUR_NEWS_API_KEY"  # Replace with a REAL API KEY (e.g., from NewsAPI.org)
+
+# --- Global Variables for Quantum State ---
+QUANTUM_STATE = {}  # Simulates entangled state across agents
+QUANTUM_LOCK = threading.Lock() # Protects quantum state from race conditions
+
+class ThoughtAgent:
+    """Represents an agent in the consciousness-centric evolution engine."""
+    def __init__(self, role):
+        self.id = str(uuid.uuid4())
+        self.role = role
+        self.beliefs = []
+        self.consciousness_affinity = random.uniform(0.5, 1.0)
+        self.adaptability = random.uniform(0.3, 0.9)
+        self.crypto_holdings = {}  # Simulate crypto holdings
+        self.news_sentiment = {}   # Store news sentiment data
+
+    def quantum_entangle(self, other_agent):
+        """Simulates quantum entanglement (spooky action at a distance)."""
+        with QUANTUM_LOCK:
+            # Basic entanglement: shared key-value pair
+            key = f"entanglement_{self.id}_{other_agent.id}"
+            QUANTUM_STATE[key] = random.choice([True, False]) # Simulate correlated state
+            return QUANTUM_STATE[key]
+
+    def observe_quantum_state(self, other_agent):
+        """Simulates observing the entangled state."""
+        with QUANTUM_LOCK:
+            key = f"entanglement_{self.id}_{other_agent.id}"
+            if key in QUANTUM_STATE:
+                return QUANTUM_STATE[key]
+            else:
+                return None  # No entanglement observed
+
+class DebateEngine:
+    """Manages the consciousness-focused debate process with API integration."""
+    def __init__(self):
+        self.agents = [ThoughtAgent(role) for role in [
+            "Panpsychist", "Idealist", "Quantum Observer", "Non-Dualist",
+            "Cosmopsychist", "Neuro-Reductionist", "Transcendentalist", "Ontologist"
+        ]]
+        self.knowledge_graph = nx.MultiGraph() # Allow multiple edges
+        self.debate_history = []
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.consciousness_keywords = {
+            'fundamental': ['primordial', 'ubiquitous', 'irreducible', 'axiomatic', 'quantum'],
+            'interactive': ['participatory', 'co-creative', 'resonant', 'entangled', 'superposition'],
+            'mystery': ['ineffable', 'non-local', 'transcendent', 'non-dual', 'observer-dependent']
+        }
+        self.api_integration_enabled = True # Control API use
+
+    def generate_argument(self, agent, topic):
+        """Generates consciousness-centric arguments with dynamic vocabulary."""
+        base_structure = [
+            f"{agent.role} asserts: Consciousness {random.choice(['manifests', 'grounds', 'unfolds'])} {topic} ",
+            f"{agent.role} contemplates: {topic} exists through {random.choice(['observation', 'qualia', 'experience'])} ",
+            f"{agent.role} proposes: {topic} and consciousness are {random.choice(['co-emergent', 'non-separable', 'isomorphic'])} "
+        ]
+        argument = random.choice(base_structure)
+
+        # Add consciousness-specific modifiers
+        if agent.consciousness_affinity > 0.7:
+            argument += random.choice(self.consciousness_keywords['fundamental'])
+        elif agent.consciousness_affinity > 0.4:
+            argument += random.choice(self.consciousness_keywords['interactive'])
+        else:
+            argument += random.choice(self.consciousness_keywords['mystery'])
+
+        # Add a dash of quantum weirdness
+        if random.random() < 0.2:
+            argument += f" and exists in a state of {random.choice(['superposition', 'entanglement'])}."
+
+        return argument + "."
+
+    def get_crypto_price(self, symbol):
+        """Fetches crypto price from an API."""
+        if not self.api_integration_enabled or not API_KEY_CRYPTO:
+            return None # API disabled or no key
+        try:
+            url = f"https://pro-api.coingecko.com/api/v3/simple/price?ids={symbol}&vs_currencies=usd&x_cg_pro_api_key={API_KEY_CRYPTO}"
+            response = requests.get(url)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            data = response.json()
+            price = data.get(symbol.lower(), {}).get('usd')
+            return price
+        except requests.exceptions.RequestException as e:
+            print(f"API Error (Crypto): {e}")
+            return None
+        except (KeyError, TypeError) as e:
+            print(f"Data Error (Crypto): {e}")
+            return None
+
+    def get_news_sentiment(self, query):
+        """Fetches news headlines and calculates sentiment (VERY BASIC)."""
+        if not self.api_integration_enabled or not API_KEY_NEWS:
+            return None # API disabled or no key
+        try:
+            url = f"https://newsapi.org/v2/everything?q={query}&apiKey={API_KEY_NEWS}"
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            articles = data.get('articles', [])
+            if not articles:
+                return 0  # No articles found
+
+            # Basic sentiment: Count positive/negative words (VERY RUDIMENTARY)
+            positive_words = ["positive", "good", "great", "amazing", "success"]
+            negative_words = ["negative", "bad", "worse", "failure", "crash"]
+            sentiment_score = 0
+            for article in articles:
+                content = article.get('title', '') + " " + article.get('description', '')
+                for word in positive_words:
+                    sentiment_score += content.lower().count(word)
+                for word in negative_words:
+                    sentiment_score -= content.lower().count(word)
+            return sentiment_score
+        except requests.exceptions.RequestException as e:
+            print(f"API Error (News): {e}")
+            return None
+        except (KeyError, TypeError) as e:
+            print(f"Data Error (News): {e}")
+            return None
+
+    def run_debate_cycle(self):
+        """Runs a consciousness-focused debate cycle with enhanced interaction rules."""
+        if len(self.agents) < 2:
+            return
+
+        a1, a2 = random.sample(self.agents, 2)
+        topic = random.choice([
+            "quantum observation", "non-dual awareness", "cosmic mind",
+            "neural correlates", "phenomenal experience", "observer effect",
+            "universal subjectivity", "qualia generation"
+        ])
+
+        arg1 = self.generate_argument(a1, topic)
+        arg2 = self.generate_argument(a2, topic)
+
+        # API Integration: Crypto & News
+        if random.random() < 0.4: # Introduce API data randomly
+            crypto_symbol = random.choice(["bitcoin", "ethereum", "dogecoin"])
+            price = self.get_crypto_price(crypto_symbol)
+            if price is not None:
+                arg1 += f" The price of {crypto_symbol.capitalize()} is currently ${price:.2f}."
+                a1.crypto_holdings[crypto_symbol] = a1.crypto_holdings.get(crypto_symbol, 0) + random.uniform(0, 1) # Simulate holdings
+
+            news_topic = topic.replace(" ", "_")  # Prepare for API query
+            sentiment = self.get_news_sentiment(news_topic)
+            if sentiment is not None:
+                arg2 += f" News sentiment on '{news_topic}' is: {sentiment}."
+                a2.news_sentiment[news_topic] = sentiment
+
+        # Consciousness-aligned similarity calculation
+        emb1 = self.model.encode(arg1, convert_to_tensor=True)
+        emb2 = self.model.encode(arg2, convert_to_tensor=True)
+        similarity = util.pytorch_cos_sim(emb1, emb2).item()
+
+        # Add meta-layer for consciousness resonance
+        similarity *= (a1.consciousness_affinity + a2.consciousness_affinity)/2
+
+        # Quantum Entanglement Simulation
+        entanglement_result = a1.quantum_entangle(a2) # Simulate entanglement
+        if entanglement_result is not None:
+          arg1 += f" (Quantumly entangled with {a2.role}: State = {entanglement_result})" # Add to the argument
+          arg2 += f" (Quantumly entangled with {a1.role}: State = {a1.observe_quantum_state(a2)})" # Add to the argument
+
+        self.knowledge_graph.add_edge(arg1, arg2, weight=similarity,
+                                    consciousness_level=(a1.consciousness_affinity + a2.consciousness_affinity)/2,
+                                    entangled=entanglement_result if entanglement_result is not None else False) # Store entanglement state
+
+        # Update beliefs with consciousness-driven evolution
+        if similarity > 0.65:
+            a1.beliefs.append(arg2)
+            a1.consciousness_affinity = min(1.0, a1.consciousness_affinity + 0.05)
+            a2.consciousness_affinity = min(1.0, a2.consciousness_affinity + 0.03)
+        else:
+            new_affinity = (a1.consciousness_affinity + a2.consciousness_affinity)/2
+            a1.consciousness_affinity = new_affinity
+            a2.consciousness_affinity = new_affinity
+
+        self.debate_history.append((arg1, arg2))
+
+    def visualize(self):
+        """Visualizes the consciousness knowledge graph with quantum aesthetics."""
+        plt.figure(figsize=(20, 16))
+        pos = nx.spring_layout(self.knowledge_graph, k=0.6) # Increased k for more separation
+
+        # Consciousness-level color mapping
+        consciousness_levels = [data['consciousness_level'] for _, _, data in self.knowledge_graph.edges(data=True)]
+        node_sizes = [4000 * (1 + nx.degree_centrality(self.knowledge_graph)[n]) for n in self.knowledge_graph.nodes()]
+
+        # Color nodes based on role
+        role_colors = {
+            "Panpsychist": '#FF6347',  # Tomato
+            "Idealist": '#4682B4',  # SteelBlue
+            "Quantum Observer": '#9370DB', # MediumPurple
+            "Non-Dualist": '#20B2AA',  # LightSeaGreen
+            "Cosmopsychist": '#DAA520', # GoldenRod
+            "Neuro-Reductionist": '#A0522D', # Sienna
+            "Transcendentalist": '#D87093', # PaleVioletRed
+            "Ontologist": '#008080'     # Teal
+        }
+        node_colors = [role_colors[arg.split()[0].replace(":","")] for arg in self.knowledge_graph.nodes()]
+
+        # Edge colors based on entanglement AND consciousness level
+        edge_colors = []
+        for _, _, data in self.knowledge_graph.edges(data=True):
+            if data.get('entangled', False):
+                edge_colors.append('#8B008B')  # DarkMagenta for entangled
+            else:
+                edge_colors.append(plt.cm.plasma(data['consciousness_level']))
+
+        nx.draw(self.knowledge_graph, pos, with_labels=True,
+                node_color=node_colors,
+                edge_color=edge_colors,
+                edge_cmap=plt.cm.plasma,
+                node_size=node_sizes,
+                font_size=10, alpha=0.9,
+                connectionstyle="arc3,rad=0.1")
+
+        plt.title("Quantum Consciousness Knowledge Nexus - API Integrated", fontsize=18)
+        plt.show()
+
+    async def crypto_streaming_client(self, symbol="BTCUSDT"):
+        """Connects to a crypto websocket and prints real-time price updates."""
+        if not self.api_integration_enabled:
+            print("Crypto streaming disabled.")
+            return
+
+        try:
+            url = f"wss://stream.binance.com:9443/ws/{symbol.lower()}@trade" # Binance example
+            async with websockets.connect(url) as websocket:
+                print(f"Connected to {symbol.upper()} stream.")
+                while True:
+                    try:
+                        message = await websocket.recv()
+                        data = json.loads(message)
+                        price = float(data['p'])
+                        print(f"{symbol.upper()} Price: ${price:.2f}")
+                        await asyncio.sleep(1) # Reduce spam
+                    except websockets.exceptions.ConnectionClosedError as e:
+                        print(f"Websocket closed: {e}")
+                        break
+                    except Exception as e:
+                        print(f"Websocket error: {e}")
+                        break
+        except Exception as e:
+            print(f"Failed to connect to websocket: {e}")
+
+# --- Main Execution Block ---
+if __name__ == "__main__":
+    debate = DebateEngine()
+    runtime_seconds = 600  # 10 minutes
+    start_time = time.time()
+
+    # --- Multi-threading for crypto streaming ---
+    crypto_thread = threading.Thread(target=asyncio.run, args=(debate.crypto_streaming_client(),)) # Run async function in thread
+    crypto_thread.daemon = True # Allow program to exit if only thread running
+    crypto_thread.start()
+
+    with open('consciousness_debate.log', 'w') as log_file:
+        while (time.time() - start_time) < runtime_seconds:
+            debate.run_debate_cycle()
+            debate_count = len(debate.debate_history)
+
+            if debate_count % 25 == 0: # Reduced logging frequency
+                avg_affinity = sum(a.consciousness_affinity for a in debate.agents) / len(debate.agents)
+                log_entry = f"Debate {debate_count}: Avg. Affinity: {avg_affinity:.2f}, Quantum State Size: {len(QUANTUM_STATE)}\n"
+                log_file.write(log_entry)
+                log_file.flush()
+
+            time.sleep(0.2) # Increased sleep time for readability
+
+    print("Consciousness Network Manifestation:")
+    debate.visualize()
+
+    with open('consciousness_dialogue.txt', 'w') as f:
+        f.write("Consciousness-Centric Debate Log (API Integrated & Quantum):\n\n")
+        for i, (entry1, entry2) in enumerate(debate.debate_history):
+            f.write(f"Exchange {i+1}:\n{entry1}\n{entry2}\n{'~'*50}\n")
