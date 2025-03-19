@@ -1,0 +1,567 @@
+# omni_retail_automation.py - © 2025 Craig Huckerby - Project OmniQ v2.0: Automated Retail Solution
+
+# --- Core Modules ---
+import json
+import logging
+import threading
+import time
+import secrets  # For key generation
+import numpy as np
+import tkinter as tk
+from tkinter import ttk
+from matplotlib.animation import FuncAnimation
+import matplotlib.pyplot as plt
+
+# --- Quantum Components ---
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
+from qiskit_aer.noise import NoiseModel, depolarizing_error, bit_flip_error
+import re
+
+# --- AI and Analytics ---
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import joblib  # For loading/saving ML models
+
+# --- Hardware Abstraction Layer (HAL) ---
+class HardwareInterface:
+    def __init__(self, config_file):
+        """Initializes the hardware interface."""
+        self.sensor_data = {}
+        self.controller = None  # Placeholder for a physical robot or device controller
+        self.config_file = config_file
+        self._load_config()
+
+    def _load_config(self):
+        """Loads configuration from a JSON file."""
+        try:
+            with open(self.config_file, 'r') as f:
+                self.config_data = json.load(f)
+                self.sensor_data = self.config_data.get("sensor_data", {})
+        except FileNotFoundError:
+            logging.warning("Configuration file not found. Using default settings.")
+            self.config_data = {}  # Empty config
+        except json.JSONDecodeError:
+            logging.error("Error decoding configuration file. Using default settings.")
+            self.config_data = {}
+
+    def read_sensor_data(self):
+        """Reads data from sensors based on configuration."""
+        # Simulate sensor readings based on the config
+        self.sensor_data = {}  # Clear previous readings
+        for sensor_type, sensor_config in self.config_data.get("sensor_data", {}).items():
+            if sensor_config.get("enabled", True):
+                if sensor_type == "camera":
+                    self.sensor_data["camera_data"] = self._simulate_camera_data()
+                elif sensor_type == "temperature":
+                    self.sensor_data["temperature"] = self._simulate_temperature()
+                elif sensor_type == "product_count":
+                    self.sensor_data["product_count"] = self._simulate_product_count()
+        return self.sensor_data
+
+    def _simulate_camera_data(self):
+        """Simulates camera data (product presence and name)."""
+        return {"product_present": np.random.choice([True, False], p=[0.8, 0.2]), "product_name": "Widget"}
+
+    def _simulate_temperature(self):
+        """Simulates temperature readings (Celsius)."""
+        return np.random.uniform(18, 28)
+
+    def _simulate_product_count(self):
+        """Simulates product count."""
+        return np.random.randint(5, 20)
+
+    def send_command(self, command):
+        """Sends a command to the hardware (placeholder)."""
+        logging.info(f"Sending command to hardware: {command}")  # Replace with physical hardware control
+        # Example: self.controller.move_robot(command)
+
+# --- Quantum Character Encoding ---
+class CharacterMap:
+    def __init__(self, qubit_size=6):
+        self.qubit_size = qubit_size
+        self.char_to_qubit = {}
+        self.qubit_to_char = {}
+        self._build_map()
+
+    def _build_map(self):
+        """Builds character-to-qubit mappings."""
+        alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{};':\",./<>?\\|"
+        binary_codes = [bin(i)[2:].zfill(self.qubit_size) for i in range(len(alphabet))]
+        self.char_to_qubit = dict(zip(alphabet, binary_codes))
+        self.qubit_to_char = {v: k for k, v in self.char_to_qubit.items()}
+
+    def encode(self, text):
+        """Encodes text into a list of qubit strings."""
+        encoded_text = []
+        for char in text:
+            qubit_representation = self.char_to_qubit.get(char)
+            if qubit_representation:
+                encoded_text.append(qubit_representation)
+            else:
+                logging.warning(f"Character '{char}' not in character map.")
+        return encoded_text
+
+    def decode(self, qubit_strings):
+        """Decodes a list of qubit strings to text."""
+        decoded_text = ""
+        for qubit_string in qubit_strings:
+            char = self.qubit_to_char.get(qubit_string)
+            if char:
+                decoded_text += char
+            else:
+                logging.warning(f"Qubit string '{qubit_string}' not in character map.")
+        return decoded_text
+
+# --- Military Hash Mapper ---
+class MilitaryHashMapper(CharacterMap):
+    def _build_map(self):
+        super()._build_map()
+        # Add specific retail symbols
+        self.char_to_qubit.update({
+            "ORDER": "111111",
+            "DISPENSE": "000000",
+            "LOW_STOCK": "101010",
+            "CHECKOUT": "010101"
+        })
+        self.qubit_to_char.update({v: k for k, v in self.char_to_qubit.items()})
+
+# --- Surface Code Implementation ---
+class SurfaceCode:
+    def __init__(self, distance=5):
+        self.distance = distance
+        self.num_qubits = 2 * distance**2 - 1
+
+    def encode_logical_zero(self):
+        """Encodes the logical zero state."""
+        qc = QuantumCircuit(self.num_qubits)
+        # Surface code initialization
+        for i in range(0, self.num_qubits, 2):
+            qc.h(i)
+        return qc
+
+    def measure_syndrome(self, qc):
+        """Adds syndrome measurement circuits."""
+        # Simplified syndrome measurement (actual implementation is more complex)
+        for i in range(self.distance):
+            for j in range(self.distance):
+                if (i + j) % 2 == 1:
+                    ancilla = self.num_qubits + i * self.distance + j
+                    qc.h(ancilla)
+                    neighbors = self._get_neighbors(i, j)
+                    for qubit in neighbors:
+                        qc.cx(ancilla, qubit)
+                    qc.h(ancilla)
+                    qc.measure(ancilla, ancilla)
+        return qc
+
+    def _get_neighbors(self, i, j):
+        """Helper method for surface code neighbors."""
+        neighbors = []
+        for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            ni, nj = i + di, j + dj
+            if 0 <= ni < self.distance and 0 <= nj < self.distance:
+                neighbors.append(ni * self.distance + nj)
+        return neighbors
+
+# --- Military Defense Module ---
+class MilitaryDefenseModule:
+    def __init__(self, quantum_core):
+        self.quantum_core = quantum_core
+        self.simulator = AerSimulator()
+        self.ETHICAL_CONSTRAINTS = {
+            "prohibited": ["THEFT", "DAMAGE"],
+            "allowed": ["ORDER", "DISPENSE", "CHECKOUT", "LOW_STOCK"]
+        }
+        self.threat_classifier = self._load_threat_model()
+
+    def _load_threat_model(self):
+        """Loads the pre-trained machine learning model."""
+        try:
+            return joblib.load('threat_classifier.pkl')
+        except FileNotFoundError:
+            logging.warning("Threat model not found. Using default (no threat detection).")
+            return None
+
+    def detect_threat(self, sensor_data):
+        """Detects threats using the ML model."""
+        if not self.threat_classifier:
+            return "OK"  # No threat detection if model not loaded
+
+        # Prepare features from sensor data
+        features = np.array([
+            sensor_data.get("product_count", 0),
+            int(sensor_data.get("camera_data", {}).get("product_present", False)),
+        ]).reshape(1, -1)
+
+        try:
+            threat = self.threat_classifier.predict(features)[0]
+            logging.info(f"Threat detected: {threat}")
+            return threat
+        except Exception as e:
+            logging.error(f"Error during threat detection: {e}")
+            return "OK"
+
+    def train_threat_model(self, data, labels):
+        """Trains a new ML model."""
+        if not data or not labels:
+            logging.warning("No data or labels provided for training.")
+            return False
+
+        try:
+            # Split data for training and testing
+            X_train, X_test, y_train, y_test = train_test_split(
+                data, labels, test_size=0.2, random_state=42
+            )
+
+            # Create a Random Forest Classifier
+            self.threat_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+
+            # Train the model
+            self.threat_classifier.fit(X_train, y_train)
+
+            # Evaluate the model (Optional)
+            accuracy = self.threat_classifier.score(X_test, y_test)
+            logging.info(f"Model accuracy: {accuracy:.2f}")
+
+            # Save the trained model
+            joblib.dump(self.threat_classifier, 'threat_classifier.pkl')
+            logging.info("Threat model saved successfully.")
+            return True
+        except Exception as e:
+            logging.error(f"Error during model training: {e}")
+            return False
+
+    def validate_order(self, order):
+        """Validates the order against ethical constraints."""
+        clean_order = re.sub(r'\W+', ' ', order.upper())  # Remove non-alphanumeric
+        return not any(term in clean_order.split() for term in self.ETHICAL_CONSTRAINTS["prohibited"])
+
+    def encrypt_tactical_order(self, message, qkd_key):
+        """Encrypts tactical orders using QKD and surface code QEC."""
+        if not self.validate_order(message):
+            raise ValueError(f"Ethical violation: {message}")
+
+        # Calculate circuit size (data qubits + QEC qubits)
+        data_qubits = len(message) * self.quantum_core.qubit_size
+        surface_code = SurfaceCode(distance=5)  # Use distance-5 surface code
+        total_qubits = data_qubits + surface_code.num_qubits
+        qc = QuantumCircuit(total_qubits, total_qubits)  # Create circuit
+
+        # Apply QKD key
+        for qubit in range(len(qkd_key)):
+            key_bit = qkd_key[qubit % len(qkd_key)]  # Cycle key
+            if key_bit == '1':
+                qc.h(qubit)
+            qc.x(qubit)
+
+        # Encode the message
+        encoded_message = self.quantum_core.encode(message)
+        for i, qubit_str in enumerate(encoded_message):
+            for j, bit in enumerate(qubit_str):
+                if bit == '1':
+                    qc.x(len(qkd_key) + i * self.quantum_core.qubit_size + j)
+
+        # Apply surface code encoding
+        qc.compose(surface_code.encode_logical_zero(), inplace=True)
+        return qc
+
+    def decrypt_order(self, qc, qkd_key):
+        """Decrypts the tactical order."""
+        compiled_circuit = transpile(qc, self.simulator)
+        result = self.simulator.run(compiled_circuit, shots=1024).result()
+        counts = result.get_counts()
+
+        if not counts:
+            logging.warning("No measurement results.")
+            return ""
+
+        most_probable_result = max(counts, key=counts.get)
+
+        # Reverse key operations
+        decrypted_bits = []
+        for qubit in range(len(qkd_key)):
+            bit = most_probable_result[-(qubit + 1)] if qubit < len(most_probable_result) else '0'
+            decrypted_bits.append(str(int(bit) ^ int(qkd_key[qubit % len(qkd_key)])))
+        qkd_applied = "".join(decrypted_bits)
+
+        # Decode message
+        decoded_message = ""
+        encoded_message_length = (len(qkd_applied) - len(qkd_key)) // self.quantum_core.qubit_size
+        for i in range(encoded_message_length):
+            start_index = len(qkd_applied) - len(qkd_key) - (i + 1) * self.quantum_core.qubit_size
+            end_index = len(qkd_applied) - len(qkd_key) - i * self.quantum_core.qubit_size
+            qubit_string = qkd_applied[start_index:end_index][::-1]
+            char = self.quantum_core.get_char_from_qubit(qubit_string)
+            if char:
+                decoded_message = char + decoded_message
+            else:
+                logging.warning(f"Could not decode qubit string: {qubit_string}")
+        return decoded_message
+
+# --- Security Module ---
+class SecurityModule:
+    def __init__(self, hardware_interface, defense_module):
+        self.hardware_interface = hardware_interface
+        self.defense_module = defense_module
+        self.current_key = self._generate_key()
+        self.login_attempts = 0
+
+    def _generate_key(self, length=128):
+        """Generates a random QKD key."""
+        return bin(secrets.randbits(length))[2:].zfill(length)
+
+    def encrypt_command(self, command):
+        """Encrypts commands with the current QKD key."""
+        # Generate a new key for each command
+        self.current_key = self._generate_key()
+        encrypted_circuit = self.defense_module.encrypt_tactical_order(command, self.current_key)
+        return encrypted_circuit, self.current_key  # Return the key as well
+
+    def decrypt_command(self, circuit, key):
+        """Decrypts a command."""
+        return self.defense_module.decrypt_order(circuit, key)
+
+    def authenticate_user(self, username, password):
+        """Authenticates user login (placeholder)."""
+        # Replace with a real authentication system
+        if username == "admin" and password == "password":
+            self.login_attempts = 0  # Reset login attempts
+            return True
+        self.login_attempts += 1
+        if self.login_attempts >= 3:
+            logging.warning("Too many failed login attempts. System locked.")
+            # Implement system lock here
+        return False
+
+    def check_integrity(self):
+        """Checks the system's integrity (placeholder)."""
+        # Add more comprehensive integrity checks here
+        return True
+
+# --- Control and Management Module ---
+class ControlAndManagementModule:
+    def __init__(self, hardware_interface, security_module, defense_module):
+        self.hardware_interface = hardware_interface
+        self.security_module = security_module
+        self.defense_module = defense_module
+        self.running = True
+        self.gui = None  # GUI instance
+        self.system_status = "Idle"  # System status
+        self.current_order = None
+        self.product_dispensed = False
+
+    def start_system(self):
+        """Starts the system's main loop."""
+        logging.info("System started.")
+        self.system_status = "Ready"
+        while self.running:
+            try:
+                self.process_system_state()
+            except Exception as e:
+                logging.error(f"Error in main loop: {e}")
+            time.sleep(1) # Check every second
+
+    def process_system_state(self):
+        """Processes current state of the system."""
+        sensor_data = self.hardware_interface.read_sensor_data()
+        threat = self.defense_module.detect_threat(sensor_data)
+
+        if threat != "OK":
+            self.handle_threat(threat)
+            return  # Prioritize threat handling
+
+        if self.current_order:
+            if not self.product_dispensed:
+                self.dispense_product(self.current_order)
+            else:
+                self.system_status = "Order Complete"
+                self.current_order = None
+                self.product_dispensed = False
+                logging.info("Order complete.")
+        elif sensor_data.get("product_count", 0) <= 5:
+            # Example of low stock
+            self.handle_low_stock()
+        else:
+            self.system_status = "Idle"  # Set idle if no action is needed
+
+    def handle_threat(self, threat_type):
+        """Handles detected threats."""
+        logging.warning(f"Threat detected: {threat_type}")
+        self.system_status = f"Threat Detected: {threat_type}"
+        # Example: Issue a secure command to address the threat
+        if threat_type == "THEFT":
+            self.send_command("LOCK_DISPENSER")
+        # For more complex actions, build actions based on threat type.
+
+    def handle_low_stock(self):
+        """Handles low stock situations."""
+        logging.info("Low stock detected.")
+        self.system_status = "Low Stock - Generating Alert"
+        # Example:  Send a message to the staff
+        self.send_command("DISPLAY_LOW_STOCK")
+
+    def dispense_product(self, order):
+        """Dispenses the product based on the order."""
+        logging.info(f"Dispensing product for order: {order}")
+        self.system_status = f"Dispensing {order}"
+        # Secure the order, then dispense.
+        encrypted_command, key = self.security_module.encrypt_command(f"DISPENSE:{order}")
+        self.hardware_interface.send_command(self.security_module.decrypt_command(encrypted_command, key))
+        self.product_dispensed = True
+
+    def send_command(self, command):
+        """Sends a command to the hardware interface (securely)."""
+        logging.info(f"Sending command: {command}")
+        encrypted_command, key = self.security_module.encrypt_command(command)
+        self.hardware_interface.send_command(self.security_module.decrypt_command(encrypted_command, key))
+
+    def process_command(self, command):
+        """Process commands from the GUI."""
+        if "ORDER" in command:
+            product = command.split(":")[1].strip()
+            self.current_order = product  # Set the order
+            self.system_status = f"Ordering {product}"
+            logging.info(f"Received order: {product}")
+        elif "LOGIN" in command:
+            parts = command.split(":")
+            if len(parts) == 3:
+                username = parts[1].strip()
+                password = parts[2].strip()
+                if self.security_module.authenticate_user(username, password):
+                    self.system_status = "Logged In"
+                    logging.info("Login successful.")
+                else:
+                    self.system_status = "Login Failed"
+                    logging.warning("Login failed.")
+            else:
+                logging.warning("Invalid login command format.")
+        elif "TRAIN_MODEL" in command:
+            # Assume data and labels are passed in
+            data = [[10, 1, 5, 0], [15, 0, 10, 1]]
+            labels = ["THEFT", "OK"]
+            self.defense_module.train_threat_model(data, labels)
+        elif "STOP" in command:
+            self.stop_system()
+        else:
+            self.send_command(command) # Send to hardware
+
+    def stop_system(self):
+        """Stops the system's main loop."""
+        self.running = False
+        self.system_status = "Stopped"
+        logging.info("System stopped.")
+
+    def launch_gui(self):
+        """Launches the graphical user interface in a separate thread."""
+        if self.gui is None:
+            self.gui = BattlefieldGUI(self)
+            self.gui_thread = threading.Thread(target=self.gui.run, daemon=True)
+            self.gui_thread.start()
+            logging.info("GUI launched in a separate thread.")
+        else:
+            logging.warning("GUI is already running.")
+
+    def get_system_status(self):
+        """Returns the current system status."""
+        return self.system_status
+
+# --- GUI for Retail Automation (Simplified) ---
+class BattlefieldGUI:
+    def __init__(self, control_module):
+        """Initializes the GUI."""
+        self.root = tk.Tk()
+        self.root.title("OmniRetail: Intelligent Retail Automation") # Modified title
+        self.control_module = control_module
+        self.setup_interface()
+        self.update_thread = threading.Thread(target=self.update_gui, daemon=True)
+        self.update_thread.start()
+
+    def setup_interface(self):
+        """Sets up the GUI components."""
+        # Status Label
+        self.status_label = tk.Label(self.root, text="System Status: Idle", font=("Arial", 12))
+        self.status_label.grid(row=0, column=0, columnspan=2, pady=10)
+
+        # Command Entry
+        self.command_label = tk.Label(self.root, text="Enter Command:")
+        self.command_label.grid(row=1, column=0, sticky=tk.W, padx=5)
+        self.command_entry = ttk.Entry(self.root, width=30)
+        self.command_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.command_entry.bind("<Return>", self.send_command)
+
+        # Send Command Button
+        self.send_button = ttk.Button(self.root, text="Send", command=self.send_command)
+        self.send_button.grid(row=2, column=0, columnspan=2, pady=5)
+
+        # Log Display
+        self.log_label = tk.Label(self.root, text="System Log:")
+        self.log_label.grid(row=3, column=0, columnspan=2, pady=5)
+        self.log_text = tk.Text(self.root, height=10, width=50)
+        self.log_text.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+        self.log_text.config(state=tk.DISABLED)
+
+    def send_command(self, event=None):
+        """Handles sending commands from the GUI."""
+        command = self.command_entry.get().strip().upper()
+        if command:
+            self.log_message(f"Sending command: {command}")
+            self.control_module.process_command(command)
+            self.command_entry.delete(0, tk.END)
+        else:
+            self.log_message("No command entered.")
+
+    def update_status(self):
+        """Updates the status label."""
+        status = self.control_module.get_system_status()
+        self.status_label.config(text=f"System Status: {status}")
+
+    def log_message(self, message):
+        """Logs a message to the GUI's log display."""
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.insert(tk.END, message + "\n")
+        self.log_text.see(tk.END)  # Autoscroll
+        self.log_text.config(state=tk.DISABLED)
+
+    def update_gui(self):
+        """Updates the GUI every second."""
+        while True:
+            try:
+                self.update_status()
+            except Exception as e:
+                self.log_message(f"GUI update error: {e}")
+            time.sleep(1) # Update every second
+
+    def run(self):
+        """Runs the GUI main loop."""
+        self.root.mainloop()
+
+# --- Main Program ---
+def main():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    # Configuration file path
+    config_file = "config.json"
+
+    # Initialize components
+    hardware_interface = HardwareInterface(config_file)
+    mil_map = MilitaryHashMapper(qubit_size=8)
+    defense_module = MilitaryDefenseModule(mil_map)
+    security_module = SecurityModule(hardware_interface, defense_module)
+    control_module = ControlAndManagementModule(hardware_interface, security_module, defense_module)
+
+    # Start the system
+    control_module.start_system()
+    control_module.launch_gui()
+
+    # Keep the main thread alive (or handle shutdown)
+    try:
+        while True:
+            time.sleep(1)  # Keep main thread alive
+    except KeyboardInterrupt:
+        logging.info("Shutting down...")
+        control_module.stop_system()
+    finally:
+        logging.info("System exit.")
+
+if __name__ == "__main__":
+    main()
