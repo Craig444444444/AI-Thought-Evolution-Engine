@@ -1,0 +1,120 @@
+input as debate below 
+
+import bitcoin
+import time  # For the progress bar
+import hashlib # For transaction hashing
+
+def get_transaction_details(txid):
+    """
+    Retrieves and displays details of a Bitcoin transaction.
+
+    Args:
+        txid: The transaction ID (hash) of the Bitcoin transaction.
+
+    Returns:
+        A dictionary containing the transaction details, or None if an error occurs.
+    """
+    try:
+        # 1. Get the raw transaction data (this part requires a connection to a Bitcoin node or using a service)
+        # For simplicity, let's simulate this with a hardcoded transaction (replace with actual retrieval)
+        # In a real-world scenario, you'd use a library or API to fetch the raw transaction
+        raw_tx = "02000000018520330a846f41743b169b6170664e1775796a581452f1950d4f1340a6962000000000ffffffff0140420f00000000001976a914c62e5b98f24771f2868e411c572221b212f406988ac00000000"
+
+        # 2. Decode the raw transaction
+        tx = bitcoin.core.CTransaction.deserialize(bitcoin.hex_to_bytes(raw_tx))
+
+        # 3. Extract relevant transaction details
+        txid = bitcoin.core.lx(tx.GetHash())
+        version = tx.nVersion
+        locktime = tx.nLockTime
+        inputs =
+        for i, txin in enumerate(tx.vin):
+            inputs.append({
+                "txid": bitcoin.core.lx(txin.prevout.hash),
+                "vout": txin.prevout.n,
+                "scriptSig": bitcoin.core.b2x(txin.scriptSig)
+            })
+        outputs =
+        for i, txout in enumerate(tx.vout):
+            outputs.append({
+                "value": txout.nValue,
+                "scriptPubKey": bitcoin.core.b2x(txout.scriptPubKey)
+            })
+
+        # 4. Construct a dictionary containing the transaction details
+        tx_details = {
+            "txid": txid,
+            "version": version,
+            "locktime": locktime,
+            "inputs": inputs,
+            "outputs": outputs
+        }
+
+        return tx_details
+
+    except Exception as e:
+        print(f"Error processing transaction: {e}")
+        return None
+
+def print_transaction_details(txid):
+    """
+    Retrieves and prints the details of a Bitcoin transaction with a progress bar.
+
+    Args:
+        txid: The transaction ID (hash) of the Bitcoin transaction.
+    """
+    print(f"Retrieving details for transaction: {txid}")
+    tx_details = get_transaction_details(txid)
+
+    if tx_details:
+        total_steps = 5  # Number of steps in the process
+        current_step = 0
+
+        # Simulate processing with a progress bar
+        print_progress(current_step, total_steps, "Connecting to network")
+        time.sleep(1)  # Simulate network activity
+        current_step += 1
+
+        print_progress(current_step, total_steps, "Decoding transaction")
+        time.sleep(1)  # Simulate decoding
+        current_step += 1
+
+        print_progress(current_step, total_steps, "Extracting inputs")
+        time.sleep(1)  # Simulate input extraction
+        current_step += 1
+
+        print_progress(current_step, total_steps, "Extracting outputs")
+        time.sleep(1)  # Simulate output extraction
+        current_step += 1
+
+        print_progress(current_step, total_steps, "Displaying details")
+        time.sleep(1)  # Simulate display preparation
+        current_step += 1
+
+        print_progress(current_step, total_steps, "Complete")  # Finalize the progress bar
+
+        print("\nTransaction Details:")
+        for key, value in tx_details.items():
+            print(f"  {key}: {value}")
+    else:
+        print("Could not retrieve transaction details.")
+
+def print_progress(current, total, message):
+    """
+    Prints a simple real-time progress bar with a message.
+
+    Args:
+        current: The current progress value.
+        total: The total progress value.
+        message: A message to display alongside the progress bar.
+    """
+    progress = (current / total) * 100
+    bar_length = 50
+    filled_length = int(bar_length * current // total)
+    bar = '=' * filled_length + '-' * (bar_length - filled_length)
+    print(f"\r{message}: [{bar}] {progress:.1f}%", end="")
+
+# --- Example Usage ---
+if __name__ == "__main__":
+    transaction_id = "your_transaction_id_here"  # Replace with a valid Bitcoin transaction ID
+    print_transaction_details(transaction_id)
