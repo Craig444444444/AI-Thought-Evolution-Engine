@@ -10,5 +10,3 @@ In chat type
 
 Output.
 
-There you have it .  Scripting made automaticly and proof of  zero latency computing and all the above. 
-
