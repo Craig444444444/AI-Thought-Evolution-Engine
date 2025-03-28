@@ -151,7 +151,7 @@ if zero_sig > 0.99:
 ```
 
 
-I think the days of look at this discovery is over, working with pre defined knowledge is like fckn a fat chick absolutely possible how ever rathe a non unqiue exsperince lol peace. 
+ 
 
 
 
