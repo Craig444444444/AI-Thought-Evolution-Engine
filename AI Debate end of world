@@ -1,0 +1,370 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2025 Craig Huckerby. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# @title **AI Thought Evolution Engine - Refined for Humane Evolution** 🏆
+!pip install networkx matplotlib sentence-transformers requests websockets tqdm --quiet
+
+import random
+import uuid
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+from sentence_transformers import SentenceTransformer, util
+import requests
+import json
+import websockets
+import asyncio
+import threading
+from tqdm.auto import tqdm  # For progress bars
+
+# --- Configuration ---
+NUM_AGENTS = 8  # Reduced for Colab efficiency
+RUNTIME_SECONDS = 600  # Reduced for Colab (10 minutes) -  Adjust as needed.  Longer is better, within reason.
+SIMILARITY_THRESHOLD = 0.7  # Minimum similarity for belief update
+API_INTEGRATION_ENABLED = False  # Toggle for API use (set to False to avoid needing keys)
+CIVILIZATION_RISK_THRESHOLD = 0.8  # Threshold for "civilization collapse"
+# --- API Keys (Replace with your keys if API_INTEGRATION_ENABLED is True) ---
+API_KEY_CRYPTO = "YOUR_CRYPTO_API_KEY"
+API_KEY_NEWS = "YOUR_NEWS_API_KEY"
+
+# --- Global Variables for Quantum State (Not used in this version, but kept for potential future expansion) ---
+QUANTUM_STATE = {}
+QUANTUM_LOCK = threading.Lock()
+
+# --- Topic-Specific Knowledge (Expand as needed) ---
+TOPIC_KNOWLEDGE = {
+    "AI ethics": [
+        "The importance of fairness and transparency.",
+        "Potential for bias in algorithms.",
+        "The need for human oversight.",
+    ],
+    "social progress": [
+        "The role of education and healthcare.",
+        "The importance of inclusivity.",
+        "The impact of technology on society."
+    ],
+    "future of humanity": [
+        "Technological singularity.",
+        "Space exploration and colonization.",
+        "The potential for existential risks."
+    ],
+    "global cooperation": [
+        "The benefits of international agreements.",
+        "The challenges of climate change.",
+        "The role of diplomacy."
+    ],
+    "sustainable development": [
+        "Renewable energy sources.",
+        "Environmental conservation.",
+        "Economic stability."
+    ],
+    "human rights": [
+        "Freedom of speech and expression.",
+        "Equal rights for all individuals.",
+        "Protection from discrimination."
+    ]
+}
+
+# --- Agent Class ---
+class ThoughtAgent:
+    """Represents an agent in the thought evolution engine."""
+    def __init__(self, role):
+        self.id = str(uuid.uuid4())
+        self.role = role
+        self.beliefs = []
+        self.adaptability = random.uniform(0.3, 0.9)
+        self.crypto_holdings = {}  # Simulate crypto holdings
+        self.news_sentiment = {}   # Store news sentiment data
+
+    def __repr__(self):
+        return f"ThoughtAgent(role='{self.role}', id='{self.id[:8]}...')"
+
+# --- Debate Engine Class ---
+class DebateEngine:
+    """Manages the debate process among thought agents."""
+    def __init__(self):
+        self.agents = [ThoughtAgent(role) for role in [
+            "Humanist", "Rationalist", "Ethicist", "Cooperator",  # More humane roles
+            "Chaotic", "Empiricist", "Skeptic", "Pragmatist"  # Kept some diversity
+        ]]
+        self.knowledge_graph = nx.Graph()
+        self.debate_history = []
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.api_integration_enabled = API_INTEGRATION_ENABLED  # Use global config
+        self.civilization_risk = 0.1  # Initialize with a low risk
+        self.risk_increase_rate = 0.001  # Base rate, adjusted in debate
+        self.risk_decrease_rate = 0.0005 # Base rate for decrease
+
+    def run_debate_cycle(self):
+        """Runs a debate cycle with the option to influence civilization risk."""
+        if len(self.agents) < 2:
+            return
+
+        a1, a2 = random.sample(self.agents, 2)
+        topic = random.choice([
+            "AI ethics", "social progress", "future of humanity", "global cooperation",
+            "sustainable development", "human rights"
+        ])
+
+        arg1 = self._generate_argument(a1, topic)
+        arg2 = self._generate_argument(a2, topic)
+
+        emb1 = self.model.encode(arg1, convert_to_tensor=True)
+        emb2 = self.model.encode(arg2, convert_to_tensor=True)
+        similarity = util.pytorch_cos_sim(emb1, emb2).item()
+
+        if self.api_integration_enabled and random.random() < 0.4:
+            self._integrate_api_data(a1, a2, topic)
+
+        # Update knowledge graph
+        self.knowledge_graph.add_edge(arg1, arg2, weight=similarity)
+
+        # Agent evolution based on similarity
+        if similarity > SIMILARITY_THRESHOLD:
+            a1.beliefs.append(arg2)
+            a1.adaptability = min(1.0, a1.adaptability + 0.1)
+            a2.beliefs.append(arg1)
+            a2.adaptability = min(1.0, a2.adaptability + 0.1)
+            self.adjust_civilization_risk(topic, "positive", similarity)  # Positive impact
+        else:
+            a2.beliefs.append(arg1)
+            a2.adaptability = max(0.1, a2.adaptability - 0.1)
+            a1.beliefs.append(arg2)
+            a1.adaptability = max(0.1, a1.adaptability - 0.1)
+            self.adjust_civilization_risk(topic, "negative", similarity)  # Negative impact
+
+        self.debate_history.append((arg1, arg2))
+
+    def adjust_civilization_risk(self, topic, sentiment, similarity):
+        """Adjusts the civilization risk level based on debate outcomes."""
+        # Base adjustment
+        if sentiment == "positive":
+            change = -self.risk_decrease_rate * (1 - similarity) # More positive with higher similarity
+        else:
+            change = self.risk_increase_rate * (1 + (1-similarity)) # More negative with lower similarity
+
+        # Topic-specific adjustments. You can expand this further.
+        if topic == "future of humanity":
+            if sentiment == "positive":
+                change *= 0.75  # Less impact, as it's a complex topic
+            else:
+                change *= 1.25 # More impact
+
+        self.civilization_risk = max(0.0, min(1.0, self.civilization_risk + change))  # Clamp between 0 and 1
+
+    def _generate_argument(self, agent, topic):
+        """Generates an argument based on the agent's role, the topic, and topic knowledge."""
+        role = agent.role
+        knowledge = TOPIC_KNOWLEDGE.get(topic, [])
+
+        base_arg = f"{agent.role} argues: "
+        if knowledge:
+            knowledge_sentence = random.choice(knowledge)
+            base_arg += f"Regarding {topic}, {knowledge_sentence} "
+        else:
+            base_arg += f"On the topic of {topic}, "
+
+        if "Humanist" in role:
+            base_arg += f"it should prioritize {random.choice(['human well-being', 'ethical considerations', 'social equity'])}."
+        elif "Ethicist" in role:
+            base_arg += f"it requires adherence to {random.choice(['moral principles', 'ethical guidelines', 'fairness'])}."
+        elif "Cooperator" in role:
+            base_arg += f"it will be best solved through {random.choice(['collaboration', 'cooperation', 'shared goals'])}."
+        elif "Rationalist" in role:
+            base_arg += f"it needs {random.choice(['logical analysis', 'evidence-based decisions'])}."
+        elif "Empiricist" in role:
+            base_arg += f"it should be based on {random.choice(['observed data', 'empirical evidence', 'real-world examples'])}."
+        elif "Skeptic" in role:
+            base_arg += f"is it truly {random.choice(['beneficial', 'effective', 'sustainable'])}?"
+        elif "Pragmatist" in role:
+            base_arg += f"it should focus on {random.choice(['practical solutions', 'tangible results', 'achievable goals'])}."
+        elif "Chaotic" in role:
+            base_arg += f"it is {random.choice(['unpredictable', 'complex', 'ever-changing'])}."
+        else:  # Fallback
+            base_arg += f"it is {random.choice(['important', 'interesting', 'challenging'])}."
+        return base_arg
+
+    def _integrate_api_data(self, agent1, agent2, topic):
+        """Integrates data from external APIs into the arguments."""
+        crypto_symbol = random.choice(["bitcoin", "ethereum", "dogecoin"])
+        price = self._get_crypto_price(crypto_symbol)
+        if price is not None:
+            arg_addition = f" The current price of {crypto_symbol.capitalize()} is ${price:.2f}."
+            agent1.crypto_holdings[crypto_symbol] = agent1.crypto_holdings.get(crypto_symbol, 0) + random.uniform(0, 1)
+            agent2.crypto_holdings[crypto_symbol] = agent2.crypto_holdings.get(crypto_symbol, 0) + random.uniform(0, 1)
+            self.debate_history[-1] = (self.debate_history[-1][0] + arg_addition, self.debate_history[-1][1])
+
+        news_topic = topic.replace(" ", "_")
+        sentiment = self._get_news_sentiment(news_topic)
+        if sentiment is not None:
+            arg_addition = f" News sentiment on '{news_topic}' is: {sentiment}."
+            agent1.news_sentiment[news_topic] = sentiment
+            agent2.news_sentiment[news_topic] = sentiment
+            self.debate_history[-1] = (self.debate_history[-1][0], self.debate_history[-1][1] + arg_addition)
+
+    def _get_crypto_price(self, symbol):
+        """Fetches crypto price from an API."""
+        if not API_KEY_CRYPTO:
+            return None
+        try:
+            url = f"https://pro-api.coingecko.com/api/v3/simple/price?ids={symbol}&vs_currencies=usd&x_cg_pro_api_key={API_KEY_CRYPTO}"
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            price = data.get(symbol.lower(), {}).get('usd')
+            return price
+        except requests.exceptions.RequestException as e:
+            print(f"API Error (Crypto): {e}")
+            return None
+        except (KeyError, TypeError) as e:
+            print(f"Data Error (Crypto): {e}")
+            return None
+
+    def _get_news_sentiment(self, query):
+        """Fetches news headlines and calculates sentiment (VERY BASIC)."""
+        if not API_KEY_NEWS:
+            return None
+        try:
+            url = f"https://newsapi.org/v2/everything?q={query}&apiKey={API_KEY_NEWS}"
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            articles = data.get('articles', [])
+            if not articles:
+                return 0  # No articles found
+
+            # Basic sentiment: Count positive/negative words
+            positive_words = ["positive", "good", "great", "amazing", "success"]
+            negative_words = ["negative", "bad", "worse", "failure", "crash"]
+            sentiment_score = 0
+            for article in articles:
+                content = article.get('title', '') + " " + article.get('description', '')
+                for word in positive_words:
+                    sentiment_score += content.lower().count(word)
+                for word in negative_words:
+                    sentiment_score -= content.lower().count(word)
+            return sentiment_score
+        except requests.exceptions.RequestException as e:
+            print(f"API Error (News): {e}")
+            return None
+        except (KeyError, TypeError) as e:
+            print(f"Data Error (News): {e}")
+            return None
+
+    def visualize(self):
+        """Visualizes the knowledge graph of debates."""
+        plt.figure(figsize=(20, 16))
+        pos = nx.spring_layout(self.knowledge_graph, k=0.6) # Increased k for more separation
+
+        # Node colors based on role
+        role_colors = {
+            "Humanist": '#FF6347',  # Tomato
+            "Rationalist": '#4682B4',  # SteelBlue
+            "Ethicist": '#9370DB', # MediumPurple
+            "Cooperator": '#20B2AA',  # LightSeaGreen
+            "Chaotic": '#DAA520', # GoldenRod
+            "Empiricist": '#A0522D', # Sienna
+            "Skeptic": '#D87093', # PaleVioletRed
+            "Pragmatist": '#008080'     # Teal
+        }
+        node_colors = [role_colors[arg.split()[0].replace(" argues:","")] for arg in self.knowledge_graph.nodes()] # Extract role from argument
+
+        # Edge colors based on similarity
+        edge_colors = [plt.cm.plasma(data['weight']) for _, _, data in self.knowledge_graph.edges(data=True)]
+
+        nx.draw(self.knowledge_graph, pos, with_labels=True,
+                node_color=node_colors,
+                edge_color=edge_colors,
+                edge_cmap=plt.cm.plasma,
+                node_size=[3000] * len(self.knowledge_graph.nodes()),  # Fixed node size
+                font_size=10, alpha=0.9,
+                width=2, # Increased edge width
+                connectionstyle="arc3,rad=0.1")
+
+        plt.title("Evolving Network of AI-Generated Ideas - API Integrated", fontsize=18)
+        plt.show()
+
+    async def crypto_streaming_client(self, symbol="BTCUSDT"):
+        """Connects to a crypto websocket and prints real-time price updates."""
+        if not self.api_integration_enabled:
+            print("Crypto streaming disabled.")
+            return
+
+        try:
+            url = f"wss://stream.binance.com:9443/ws/{symbol.lower()}@trade" # Binance example
+            async with websockets.connect(url) as websocket:
+                print(f"Connected to {symbol.upper()} stream.")
+                while True:
+                    try:
+                        message = await websocket.recv()
+                        data = json.loads(message)
+                        price = float(data['p'])
+                        print(f"{symbol.upper()} Price: ${price:.2f}")
+                        await asyncio.sleep(1) # Reduce spam
+                    except websockets.exceptions.ConnectionClosedError as e:
+                        print(f"Websocket closed: {e}")
+                        break
+                    except Exception as e:
+                        print(f"Websocket error: {e}")
+                        break
+        except Exception as e:
+            print(f"Failed to connect to websocket: {e}")
+
+# --- Progress Bar and Time Remaining ---
+def format_time_remaining(seconds):
+    """Formats seconds into a human-readable time remaining string."""
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+
+# --- Main Execution Block ---
+if __name__ == "__main__":
+    # Initialize the debate engine
+    debate = DebateEngine()
+    start_time = time.time()
+    # --- Progress Bar Setup ---
+    pbar = tqdm(total=RUNTIME_SECONDS, desc="Debate Progress", unit="s")
+
+    # --- Multi-threading for crypto streaming ---
+    if API_INTEGRATION_ENABLED:
+        crypto_thread = threading.Thread(target=lambda: asyncio.run(debate.crypto_streaming_client()))
+        crypto_thread.daemon = True
+        crypto_thread.start()
+
+    # --- Main Simulation Loop ---
+    try:
+        while time.time() - start_time < RUNTIME_SECONDS:
+            debate.run_debate_cycle()
+            # Update progress bar
+            elapsed = time.time() - start_time
+            pbar.update(int(elapsed) - pbar.n)
+            time.sleep(0.1)  # Reduce CPU usage
+
+            # Check civilization risk
+            if debate.civilization_risk >= CIVILIZATION_RISK_THRESHOLD:
+                print(f"\n⚠️ Civilization collapse imminent! Risk level: {debate.civilization_risk:.2f}")
+                break
+    finally:
+        pbar.close()
+
+    # --- Final Visualization ---
+    print("\nFinal Knowledge Graph:")
+    debate.visualize()
+
+    print("\nCivilization Risk Level:", debate.civilization_risk)
+    print("Debate History Length:", len(debate.debate_history))
+    print("Knowledge Graph Nodes:", len(debate.knowledge_graph.nodes()))
+    print("Knowledge Graph Edges:", len(debate.knowledge_graph.edges()))
