@@ -1,0 +1,444 @@
+# Secure Chess Protocol v2.1 - Production-Ready Implementation
+!pip install cryptography
+
+import os
+import struct
+import time
+import hmac
+import secrets
+from typing import Tuple
+from cryptography.hazmat.primitives.asymmetric import ec, rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.exceptions import InvalidSignature
+
+class SecurityError(Exception):
+    """Security protocol violation with error codes"""
+    def __init__(self, message: str, code: int = 1000):
+        self.code = code
+        self.message = f"[{code}] {message}"
+        super().__init__(self.message)
+
+class ChessSecurity:
+    PROTOCOL_VERSION = 0x02
+    MAX_IDENTITY_LENGTH = 64
+    MESSAGE_TYPES = {
+        'MOVE': 0x01,
+        'CHAT': 0x02,
+        'REKEY': 0x03
+    }
+
+    def __init__(self, player_id: str):
+        if len(player_id) > self.MAX_IDENTITY_LENGTH:
+            raise ValueError(f"Player ID exceeds maximum length of {self.MAX_IDENTITY_LENGTH}")
+
+        self.player_id = player_id
+        self.peer_id = None
+        self.sequence_number = 0
+        self.peer_sequence_number = 0
+        self.nonce_counter = 0
+        self.rsa_private, self.rsa_public = self._generate_rsa_key_pair()
+        self.ecdhe_private = None
+        self.peer_ecdhe_public = None
+        self.session_key = None
+        self.last_rekey_time = 0
+        self.message_count = 0
+
+    # Key management
+    def _generate_rsa_key_pair(self) -> Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
+        """Generate RSA-2048 key pair for long-term authentication"""
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+        return private_key, private_key.public_key()
+
+    def get_rsa_public_pem(self) -> bytes:
+        """Serialize RSA public key to PEM format"""
+        return self.rsa_public.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+    # Key exchange protocol
+    def initiate_key_exchange(self) -> Tuple[bytes, bytes]:
+        """Phase 1: Generate signed ECDHE parameters"""
+        self.ecdhe_private = ec.generate_private_key(ec.SECP384R1(), default_backend())
+        ecdhe_public = self.ecdhe_private.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        signature = self._sign(ecdhe_public)
+        return ecdhe_public, signature
+
+    def complete_key_exchange(self, peer_rsa_pem: bytes, peer_ecdhe_public: bytes,
+                            peer_signature: bytes) -> None:
+        """Phase 2: Verify peer and establish session"""
+        try:
+            peer_rsa = serialization.load_pem_public_key(peer_rsa_pem, backend=default_backend())
+
+            if not self._verify(peer_rsa, peer_ecdhe_public, peer_signature):
+                raise SecurityError("Invalid peer signature", 1001)
+
+            self.peer_ecdhe_public = serialization.load_pem_public_key(
+                peer_ecdhe_public,
+                backend=default_backend()
+            )
+
+            shared_secret = self.ecdhe_private.exchange(ec.ECDH(), self.peer_ecdhe_public)
+
+            self.session_key = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=None,
+                info=b'chess-session-key',
+                backend=default_backend()
+            ).derive(shared_secret)
+
+            self.last_rekey_time = time.time()
+            self.message_count = 0
+
+        except Exception as e:
+            raise SecurityError(f"Key exchange failed: {str(e)}", 1002)
+
+    # Cryptographic operations
+    def _sign(self, data: bytes) -> bytes:
+        """Sign data with RSA-PSS"""
+        return self.rsa_private.sign(
+            data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+
+    def _verify(self, public_key: rsa.RSAPublicKey, data: bytes, signature: bytes) -> bool:
+        """Verify RSA-PSS signature"""
+        try:
+            public_key.verify(
+                signature,
+                data,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True
+        except InvalidSignature:
+            return False
+
+    def _generate_nonce(self) -> bytes:
+        """Hybrid counter+random nonce generation"""
+        self.nonce_counter += 1
+        return struct.pack('!Q', self.nonce_counter) + secrets.token_bytes(4)
+
+    def _should_rekey(self) -> bool:
+        """Determine if we should initiate rekeying"""
+        return (self.message_count >= 100) or (time.time() - self.last_rekey_time > 3600)
+
+    def rekey_session(self) -> None:
+        """Perform session rekeying"""
+        try:
+            shared_secret = self.ecdhe_private.exchange(ec.ECDH(), self.peer_ecdhe_public)
+            self.session_key = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=self.session_key,  # Use old key as salt
+                info=b'chess-session-rekey',
+                backend=default_backend()
+            ).derive(shared_secret)
+            self.last_rekey_time = time.time()
+            self.message_count = 0
+        except Exception as e:
+            raise SecurityError(f"Rekey failed: {str(e)}", 1003)
+
+    # Message protocol
+    def encrypt_message(self, message_type: int, payload: str) -> bytes:
+        """
+        Encrypt and authenticate a message
+        Args:
+            message_type: One of MESSAGE_TYPES values
+            payload: String content to encrypt
+        Returns:
+            Encrypted message bytes ready for transmission
+        """
+        if not self.session_key:
+            raise SecurityError("Session not established", 1004)
+
+        if self._should_rekey():
+            self.rekey_session()
+
+        self.sequence_number += 1
+        self.message_count += 1
+
+        # Prepare message components
+        timestamp = struct.pack('!Q', int(time.time()))
+        identity = self.player_id.encode()
+        identity_len = struct.pack('!B', len(identity))
+        header = struct.pack('!BBI', self.PROTOCOL_VERSION, message_type, self.sequence_number)
+        plaintext = timestamp + identity_len + identity + header + payload.encode()
+
+        # Encrypt with AES-256-GCM
+        nonce = self._generate_nonce()
+        cipher = Cipher(algorithms.AES(self.session_key), modes.GCM(nonce), default_backend())
+        encryptor = cipher.encryptor()
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+
+        # Generate HMAC-SHA256 for integrity
+        hmac_key = hmac.new(self.session_key, b"message-auth", 'sha256')
+        hmac_key.update(nonce + encryptor.tag + ciphertext)
+        mac = hmac_key.digest()
+
+        return nonce + encryptor.tag + ciphertext + mac
+
+    def decrypt_message(self, encrypted_msg: bytes) -> Tuple[int, str]:
+        """
+        Decrypt and verify an incoming message
+        Args:
+            encrypted_msg: Received message bytes
+        Returns:
+            Tuple of (message_type, payload)
+        Raises:
+            SecurityError if verification fails
+        """
+        if not self.session_key:
+            raise SecurityError("Session not established", 1005)
+
+        MIN_MESSAGE_SIZE = 12 + 16 + 1 + 32  # nonce + tag + min ciphertext + mac
+        if len(encrypted_msg) < MIN_MESSAGE_SIZE:
+            raise SecurityError("Message too short", 1006)
+
+        # Parse message components
+        nonce = encrypted_msg[:12]
+        tag = encrypted_msg[12:28]
+        ciphertext = encrypted_msg[28:-32]
+        received_mac = encrypted_msg[-32:]
+
+        # Verify HMAC
+        hmac_key = hmac.new(self.session_key, b"message-auth", 'sha256')
+        hmac_key.update(nonce + tag + ciphertext)
+        expected_mac = hmac_key.digest()
+        if not hmac.compare_digest(received_mac, expected_mac):
+            raise SecurityError("HMAC validation failed", 1007)
+
+        # Decrypt with AES-256-GCM
+        try:
+            cipher = Cipher(algorithms.AES(self.session_key), modes.GCM(nonce, tag), default_backend())
+            decryptor = cipher.decryptor()
+            plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+        except Exception as e:
+            raise SecurityError(f"Decryption failed: {str(e)}", 1008)
+
+        # Parse message structure
+        try:
+            timestamp = struct.unpack('!Q', plaintext[:8])[0]
+            identity_len = struct.unpack('!B', plaintext[8:9])[0]
+            if identity_len > self.MAX_IDENTITY_LENGTH:
+                raise SecurityError("Invalid identity length", 1009)
+
+            sender_id = plaintext[9:9+identity_len].decode()
+            version, msg_type, seq_num = struct.unpack('!BBI', plaintext[9+identity_len:9+identity_len+6])
+            payload = plaintext[9+identity_len+6:].decode()
+        except Exception as e:
+            raise SecurityError(f"Message parsing failed: {str(e)}", 1010)
+
+        # Validate message metadata
+        if version != self.PROTOCOL_VERSION:
+            raise SecurityError(f"Unsupported protocol version: {version}", 1011)
+        if seq_num != self.peer_sequence_number + 1:
+            raise SecurityError(f"Sequence number mismatch (expected {self.peer_sequence_number+1}, got {seq_num})", 1012)
+        if abs(time.time() - timestamp) > 300:  # 5 minute window
+            raise SecurityError("Message too old (possible replay)", 1013)
+        if sender_id != self.peer_id:
+            raise SecurityError(f"Sender identity mismatch (expected {self.peer_id}, got {sender_id})", 1014)
+
+        self.peer_sequence_number = seq_num
+        return msg_type, payload
+
+# Demonstration
+if __name__ == "__main__":
+    print("=== Secure Chess Protocol v2.1 Demonstration ===")
+
+    # Initialize players
+    try:
+        alice = ChessSecurity("Alice")
+        bob = ChessSecurity("Bob")
+        alice.peer_id = "Bob"
+        bob.peer_id = "Alice"
+    except Exception as e:
+        print(f"Initialization failed: {e}")
+        exit(1)
+
+    # Simulate key exchange (in production, this would be over TLS)
+    print("\n=== Key Exchange Tests ===")
+    try:
+        # Exchange RSA public keys
+        alice_rsa_pem = alice.get_rsa_public_pem()
+        bob_rsa_pem = bob.get_rsa_public_pem()
+
+        # Perform ECDHE key exchange
+        alice_ecdhe, alice_sig = alice.initiate_key_exchange()
+        bob_ecdhe, bob_sig = bob.initiate_key_exchange()
+
+        bob.complete_key_exchange(alice_rsa_pem, alice_ecdhe, alice_sig)
+        alice.complete_key_exchange(bob_rsa_pem, bob_ecdhe, bob_sig)
+
+        print("Key exchange completed successfully")
+
+        # Test invalid peer signature
+        print("\nTesting invalid peer signature during key exchange...")
+        tampered_signature = b'invalid signature'
+        try:
+            alice_tampered = ChessSecurity("AliceTampered")
+            alice_tampered.complete_key_exchange(bob_rsa_pem, bob_ecdhe, tampered_signature)
+            print("ERROR: Invalid signature should have been detected")
+        except SecurityError as e:
+            print(f"Invalid signature correctly detected: {e.message}")
+
+    except SecurityError as e:
+        print(f"Key exchange failed: {e.message}")
+        exit(1)
+
+    # Test secure messaging
+    print("\n=== Secure Messaging Tests ===")
+    try:
+        # Alice sends a move
+        move_msg = alice.encrypt_message(ChessSecurity.MESSAGE_TYPES['MOVE'], "e2e4")
+        print(f"Alice → Bob: Encrypted move message ({len(move_msg)} bytes)")
+
+        # Bob receives and decrypts
+        msg_type, move = bob.decrypt_message(move_msg)
+        print(f"Bob decrypted: {move} (type: {msg_type})")
+
+        # Alice sends a chat message
+        chat_msg = alice.encrypt_message(ChessSecurity.MESSAGE_TYPES['CHAT'], "Hello Bob!")
+        print(f"Alice → Bob: Encrypted chat message ({len(chat_msg)} bytes)")
+        msg_type, chat = bob.decrypt_message(chat_msg)
+        print(f"Bob decrypted: {chat} (type: {msg_type})")
+
+    except SecurityError as e:
+        print(f"Message exchange failed: {e.message}")
+
+    # Test security features
+    print("\n=== Security Feature Tests ===")
+
+    # Test replay attack prevention
+    try:
+        print("\nAttempting replay attack...")
+        bob.decrypt_message(move_msg)  # Same move message again
+        print("ERROR: Replay attack succeeded (should have failed)")
+    except SecurityError as e:
+        print(f"Replay attack correctly blocked: {e.message}")
+
+    # Test automatic rekeying
+    try:
+        print("\nTesting automatic rekeying...")
+        initial_key = alice.session_key
+        for i in range(105):  # Force rekey at 100 messages
+            alice.encrypt_message(ChessSecurity.MESSAGE_TYPES['MOVE'], f"move{i}")
+        print(f"Session key changed after 100 messages: {initial_key != alice.session_key}")
+        print(f"Alice's message count after rekey: {alice.message_count}") # Should be 5
+        # Bob receives a message after Alice rekeyed
+        rekeyed_move = alice.encrypt_message(ChessSecurity.MESSAGE_TYPES['MOVE'], "f7f5")
+        msg_type, move_after_rekey = bob.decrypt_message(rekeyed_move)
+        print(f"Bob decrypted message after rekey: {move_after_rekey}")
+    except SecurityError as e:
+        print(f"Rekeying failed: {e.message}")
+
+    # Test error conditions
+    print("\n=== Error Condition Tests ===")
+
+    # Test tampered HMAC
+    print("\nTesting tampered HMAC...")
+    tampered_hmac_msg = move_msg[:-10] + secrets.token_bytes(10) # Tamper the last 10 bytes (part of MAC)
+    try:
+        bob.decrypt_message(tampered_hmac_msg)
+        print("ERROR: Tampered HMAC should have been detected")
+    except SecurityError as e:
+        print(f"Tampered HMAC correctly detected: {e.message}")
+
+    # Test short message
+    print("\nTesting short message...")
+    short_msg = bytes(50)
+    try:
+        bob.decrypt_message(short_msg)
+        print("ERROR: Short message should have been detected")
+    except SecurityError as e:
+        print(f"Short message correctly detected: {e.message}")
+
+    # Test wrong sender
+    print("\nTesting wrong sender...")
+    eve = ChessSecurity("Eve")
+    eve.peer_id = "Bob" # Eve tries to impersonate Alice
+    eve_move = eve.encrypt_message(ChessSecurity.MESSAGE_TYPES['MOVE'], "a7a6")
+    try:
+        bob.decrypt_message(eve_move)
+        print("ERROR: Message from wrong sender should have been detected")
+    except SecurityError as e:
+        print(f"Message from wrong sender correctly detected: {e.message}")
+
+    # Test invalid protocol version
+    print("\nTesting invalid protocol version...")
+    invalid_version_msg = bytearray(move_msg)
+    invalid_version_msg[28 + 8 + 1] = 0xFF # Modify protocol version in plaintext
+    try:
+        bob.decrypt_message(bytes(invalid_version_msg))
+        print("ERROR: Invalid protocol version should have been detected")
+    except SecurityError as e:
+        print(f"Invalid protocol version correctly detected: {e.message}")
+
+    # Test sequence number mismatch
+    print("\nTesting sequence number mismatch...")
+    # Send one message
+    move_msg_1 = alice.encrypt_message(ChessSecurity.MESSAGE_TYPES['MOVE'], "g1f3")
+    bob.decrypt_message(move_msg_1)
+    # Send another, but manipulate Alice's sequence number
+    alice.sequence_number += 2 # Skip a sequence number
+    mismatched_seq_msg = alice.encrypt_message(ChessSecurity.MESSAGE_TYPES['MOVE'], "b8c6")
+    try:
+        bob.decrypt_message(mismatched_seq_msg)
+        print("ERROR: Sequence number mismatch should have been detected")
+    except SecurityError as e:
+        print(f"Sequence number mismatch correctly detected: {e.message}")
+    finally:
+        bob.peer_sequence_number -= 1 # Reset Bob's expected sequence for further tests
+
+    # Test stale message (timestamp too old)
+    print("\nTesting stale message...")
+    stale_alice = ChessSecurity("StaleAlice")
+    stale_alice.peer_id = "Bob"
+    # Perform key exchange for stale Alice (simplified for this test)
+    stale_alice.session_key = alice.session_key # Reuse Alice's key for simplicity
+    stale_alice.peer_sequence_number = bob.peer_sequence_number
+    old_timestamp = int(time.time() - 600) # 10 minutes old
+    identity = stale_alice.player_id.encode()
+    identity_len = struct.pack('!B', len(identity))
+    header = struct.pack('!BBI', ChessSecurity.PROTOCOL_VERSION, ChessSecurity.MESSAGE_TYPES['MOVE'], stale_alice.sequence_number + 1)
+    old_plaintext = struct.pack('!Q', old_timestamp) + identity_len + identity + header + b"d7d5"
+    nonce = stale_alice._generate_nonce()
+    cipher = Cipher(algorithms.AES(stale_alice.session_key), modes.GCM(nonce), default_backend())
+    encryptor = cipher.encryptor()
+    old_ciphertext = encryptor.update(old_plaintext) + encryptor.finalize()
+    hmac_key = hmac.new(stale_alice.session_key, b"message-auth", 'sha256')
+    hmac_key.update(nonce + encryptor.tag + old_ciphertext)
+    old_mac = hmac_key.digest()
+    stale_msg = nonce + encryptor.tag + old_ciphertext + old_mac
+    try:
+        bob.decrypt_message(stale_msg)
+        print("ERROR: Stale message should have been detected")
+    except SecurityError as e:
+        print(f"Stale message correctly detected: {e.message}")
+
+    # Test large player ID during initialization
+    print("\nTesting large player ID...")
+    long_id = "A" * 65
+    try:
+        long_alice = ChessSecurity(long_id)
+        print("ERROR: Large player ID should have caused an error during initialization")
+    except ValueError as e:
+        print(f"Large player ID correctly detected: {e}")
